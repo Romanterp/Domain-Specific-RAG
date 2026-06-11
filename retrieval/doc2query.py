@@ -27,7 +27,12 @@ Usage
 Prototype (local 7B, 300 chunks):
     .venv311/Scripts/python.exe -m retrieval.doc2query --n-chunks 300 --n-questions 6
 
-Full-corpus shard (one SLURM array task; 32B on 2x A100):
+Full-corpus (32B on Habrok):
+    # ONCE, before submitting the array (CPU-only, ~3 min — applies the chunk
+    # filters and persists the held-out eval chunk ids all shards will share):
+    python -m retrieval.doc2query --make-holdout
+
+    # then each SLURM array task runs one shard (2x A100):
     python -m retrieval.doc2query --full-corpus --shard $SLURM_ARRAY_TASK_ID \\
         --num-shards 24 --model allenai/Olmo-3.1-32B-Instruct --n-questions 6 --resume
 
@@ -102,6 +107,13 @@ def main() -> int:
     ap.add_argument("--num-shards", type=int, default=1, help="total shards (full-corpus)")
     ap.add_argument("--eval-chunks", type=int, default=1000,
                     help="held-out eval gold chunks (1/doc) for full-corpus mode")
+    ap.add_argument("--make-holdout", action="store_true",
+                    help="compute the full-corpus held-out eval sample, write it to "
+                         "--holdout-file, and exit. Run ONCE before the array job; "
+                         "every shard then reads the same file.")
+    ap.add_argument("--holdout-file", default=str(DATA_DIR / "doc2query_holdout_ids.txt"),
+                    help="persisted held-out eval chunk-id list shared by all "
+                         "full-corpus shards (one chunk_id per line)")
     # prototype
     ap.add_argument("--n-chunks", type=int, default=300)
     ap.add_argument("--n-questions", type=int, default=6)
@@ -144,18 +156,38 @@ def main() -> int:
     )
     log.info(f"Eligible chunks after filters: {len(chunks_all):,}")
 
+    holdout_path = Path(args.holdout_file)
+
+    if args.make_holdout:
+        sample = stratified_sample(chunks_all, docs, args.eval_chunks, args.seed)
+        ids = sorted(c["chunk_id"] for c in sample)
+        holdout_path.parent.mkdir(parents=True, exist_ok=True)
+        holdout_path.write_text("\n".join(ids) + "\n", encoding="utf-8")
+        log.info(f"Wrote {len(ids):,} held-out eval chunk ids → {holdout_path}")
+        log.info("Now submit the array job; every shard reads this file.")
+        return 0
+
     # --- select working set + eval gold chunks per mode ---
     if args.full_corpus:
         # augment EVERY eligible chunk; shard by deterministic chunk_id order.
         chunks_sorted = sorted(chunks_all, key=lambda c: c["chunk_id"])
         per = math.ceil(len(chunks_sorted) / args.num_shards)
         working = chunks_sorted[args.shard * per:(args.shard + 1) * per]
-        eval_ids = {c["chunk_id"] for c in
-                    stratified_sample(chunks_all, docs, args.eval_chunks, args.seed)}
+        # All shards read ONE persisted holdout list — never recomputed per
+        # shard, so identical eval splits are guaranteed even if a shard is
+        # re-run later with different filter flags.
+        if not holdout_path.exists():
+            log.error(f"Holdout list not found: {holdout_path}")
+            log.error("Run once first:  python -m retrieval.doc2query --make-holdout "
+                      f"--eval-chunks {args.eval_chunks} --seed {args.seed}")
+            return 2
+        eval_ids = {ln.strip() for ln in
+                    holdout_path.read_text(encoding="utf-8").splitlines() if ln.strip()}
         exp_path = DATA_DIR / f"doc2query_expansions_shard{args.shard}.json"
         eval_path = DATA_DIR / f"doc2query_eval_shard{args.shard}.jsonl"
         log.info(f"FULL-CORPUS shard {args.shard}/{args.num_shards}: "
-                 f"{len(working):,} chunks this shard, {len(eval_ids):,} held-out eval chunks total")
+                 f"{len(working):,} chunks this shard, {len(eval_ids):,} held-out "
+                 f"eval chunks (from {holdout_path.name})")
     else:
         # prototype: 1/doc sample, every sampled chunk is an eval gold chunk.
         working = stratified_sample(chunks_all, docs, args.n_chunks, args.seed)
@@ -250,7 +282,10 @@ def main() -> int:
                     n_eval += 1
                 feval.flush()
             else:
-                keep = questions  # non-eval chunk: index everything
+                # Index the same number of questions as an eval chunk gets
+                # (n_questions − holdout), so gold and distractor chunks have
+                # identical augmentation depth — no asymmetry in the A/B.
+                keep = questions[: args.n_questions - args.holdout]
 
             expansions[cid] = keep
             n_index_q += len(keep)

@@ -13,6 +13,10 @@
 # eligible chunks with OLMo 3.1 32B (2x A100, bf16, device_map=auto). Submit
 # FROM the project dir on /scratch. NUM_SHARDS must equal the array size.
 #
+#   # ONCE before submitting (login node, CPU-only, ~3 min): persist the
+#   # held-out eval chunk list that every shard reads:
+#   python -m retrieval.doc2query --make-holdout
+#
 #   sbatch scripts/habrok/doc2query.slurm
 #   # then, after all tasks COMPLETED:
 #   python -m retrieval.doc2query --merge
@@ -35,11 +39,20 @@ source .venv-habrok/bin/activate
 source scripts/habrok/env.sh
 
 MODEL="${MODEL:-allenai/Olmo-3.1-32B-Instruct}"
-# 5 is data-backed: the indexing-count ablation (retrieval/doc2query_count_ablation.py)
-# showed recall rises monotonically with no plateau through N=5 (Hit@10 55->69%,
-# not-retrieved 23->14%); 5 also matches the eval set. See EXPERIMENTS.md Round 6b.
-N_QUESTIONS="${N_QUESTIONS:-5}"
+# Generate 6 → INDEX 5 per chunk (1 slot is the eval holdout; non-eval chunks
+# are capped to the same 5 for gold/distractor symmetry). 5 indexed is
+# data-backed: the indexing-count ablation showed recall rising monotonically
+# with no plateau through N=5 (Hit@10 55->69%, not-retrieved 23->14%).
+# See EXPERIMENTS.md Round 6b and retrieval/doc2query_count_ablation.py.
+N_QUESTIONS="${N_QUESTIONS:-6}"
 NUM_SHARDS="${NUM_SHARDS:-24}"   # MUST match the --array size above
+
+# Fail fast if the shared holdout list hasn't been generated yet.
+test -f data/doc2query_holdout_ids.txt || {
+    echo "ERROR: data/doc2query_holdout_ids.txt missing."
+    echo "Run once first:  python -m retrieval.doc2query --make-holdout"
+    exit 1
+}
 
 echo "[$(date)] shard $SLURM_ARRAY_TASK_ID / $NUM_SHARDS  model=$MODEL"
 python -m retrieval.doc2query --full-corpus \
