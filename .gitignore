@@ -20,6 +20,8 @@ data/*
 !data/catalog.json
 !data/documents.json
 !data/doc2query_expansions.json
+# Frozen eval-split definition for the full-corpus doc2query run
+!data/doc2query_holdout_ids.txt
 # ...but never the bulk chunk dump (211 MB, regenerable from texts/)
 data/chunks.jsonl
 
