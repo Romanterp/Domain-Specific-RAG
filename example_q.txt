@@ -1,0 +1,57 @@
+# Curated evaluation queries for retrieval ablation.
+# Blank lines and # comments are ignored by the loader.
+# Goal: span query types × topics so ranking differences between
+# ablation conditions are interpretable rather than accidental.
+
+# --- Original seed queries ---
+What are the most effective policies for early warning in case of floods?
+What are the most effective policies for early warning in case of heatwaves?
+What is an interesting policy failure in disaster risk reduction?
+What is the most relevant theory for decision making under risk?
+
+# --- Definitional / factual ---
+What is the Sendai Framework for Disaster Risk Reduction?
+What is systemic risk in the context of disaster management?
+What are heat action plans and where have they been implemented?
+What is cascading risk and how does it differ from compound risk?
+
+# --- Mechanism / how-does-it-work ---
+What are the main components of a multi-hazard early warning system?
+How do building codes reduce earthquake damage?
+How do nature-based solutions reduce flood risk?
+What role does land-use planning play in landslide prevention?
+
+# --- Case study / example ---
+Examples of community-based disaster risk reduction in Bangladesh
+What went wrong in the response to Hurricane Katrina?
+Successful urban heat action plans in India
+Case studies of drought resilience in the Sahel
+
+# --- Comparative ---
+How does the Sendai Framework differ from the Hyogo Framework of Action?
+How does disaster risk reduction align with the Sustainable Development Goals?
+Differences between risk transfer and risk reduction
+
+# --- Geographic ---
+Disaster risk reduction strategies in Small Island Developing States
+Wildfire risk management in Mediterranean Europe
+Tsunami preparedness in the Pacific Ring of Fire
+
+# --- Temporal / trend ---
+How have disaster-related economic losses changed since 2000?
+How has early warning coverage evolved under the Sendai Framework?
+
+# --- Abstract / conceptual ---
+Why do people ignore early warnings even when they are accurate?
+What makes a city disaster-resilient?
+The role of indigenous knowledge in disaster risk reduction
+
+# --- Failure / critique ---
+What are the limitations of probabilistic risk assessment?
+Why do disaster risk reduction programs fail in development contexts?
+Critiques of technocratic approaches to flood management
+
+# --- Thematic / cross-cutting ---
+Gender dimensions of disaster vulnerability
+Financing mechanisms for disaster risk reduction in low-income countries
+Integrating climate change adaptation with disaster risk reduction

@@ -1,0 +1,31 @@
+# Habrok inference dependencies — OLMo 3.1 32B generation + retrieval glue.
+#
+# Why this file exists: the local requirements.txt is the scraping/prototyping
+# set (playwright, pymupdf, spacy, openai) and has NONE of the heavy inference
+# deps. setup_env.sh installs from THIS file on the cluster so the SLURM jobs
+# don't die on `import torch`. See retrieval/generate_questions.py (torch +
+# transformers AutoModelForCausalLM).
+
+# --- core inference ---
+torch==2.5.1                 # match the CUDA module loaded in setup_env.sh
+transformers>=5.0
+accelerate>=1.0              # device_map / sharded loading for the 32B model
+bitsandbytes>=0.43           # int8/int4 quant fallback if a 80GB GPU isn't free
+
+# --- question generation needs ---
+langdetect>=1.0.9            # English-only chunk filter (lazy-imported)
+
+# --- retrieval eval, if run on the cluster instead of locally ---
+# (the planned workflow runs eval locally on the 4080 against local indexes;
+#  these are here so a full cluster eval also works. Safe to keep.)
+sentence-transformers>=3.0   # BGE-M3 embed + BGE-reranker-v2-m3
+qdrant-client>=1.10
+rank-bm25>=0.2.2
+
+# --- shared ---
+numpy
+tqdm>=4.66.0
+
+# NOTE (BGE-M3 gotcha): on torch 2.5 / transformers 5.x, loading BGE-M3 needs
+# revision="refs/pr/130" because CVE-2025-32434 blocks .bin loading. Only
+# relevant if you run the embedder on Habrok; the generator (OLMo) is unaffected.

@@ -1,0 +1,45 @@
+# Virtual environments
+.venv/
+.venv311/
+.venv-habrok/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Markdown (thesis notes, experiment logs, generated summaries) stays local
+*.md
+
+# Data: ignore everything by default, whitelist small/irreplaceable artifacts.
+# Order matters — later rules override earlier ones.
+data/*
+# Per-query eval results + question sets (GPU-expensive to regenerate)
+!data/*.jsonl
+# Corpus metadata (catalog scrape + enriched documents index)
+!data/catalog.json
+!data/documents.json
+!data/doc2query_expansions.json
+# ...but never the bulk chunk dump (211 MB, regenerable from texts/)
+data/chunks.jsonl
+
+# NEVER track: browser profiles (cookies/credentials), local stores, corpora
+# (covered by data/* above; listed explicitly as a guard if data/* is edited)
+data/browser_profile/
+data/edge_profile/
+data/qdrant/
+data/pdfs/
+data/texts/
+
+# Large regenerable indexes
+*.pkl
+
+# HPC job logs
+scripts/habrok/logs/
+
+# Reference papers (re-downloadable)
+mirage.pdf
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
