@@ -169,11 +169,20 @@ class MirageAttributor:
         add(f"\nQuestion: {question}\nAnswer:")
         return torch.tensor([ids2]), spans2
 
-    def _generate(self, ids, max_new_tokens: int):
+    def _generate(self, ids, max_new_tokens: int,
+                  repetition_penalty: float = 1.3, no_repeat_ngram_size: int = 3):
+        """Greedy decode with anti-degeneration guards. Greedy alone loops on
+        Instruct models once they've answered (the '[1] the [1] the' collapse);
+        the repetition penalty + no-repeat n-gram + explicit EOS make it stop.
+        These affect only WHICH tokens are produced — CTI/CCI then attribute
+        whatever was generated, so the measurement is unbiased."""
         import torch
         with torch.no_grad():
             gen = self.model.generate(
                 ids.to(self.device), max_new_tokens=max_new_tokens, do_sample=False,
+                repetition_penalty=repetition_penalty,
+                no_repeat_ngram_size=no_repeat_ngram_size,
+                eos_token_id=self.tok.eos_token_id,
                 pad_token_id=self.tok.pad_token_id or self.tok.eos_token_id,
             )
         return gen[:, ids.shape[1]:].cpu()  # answer token ids only
