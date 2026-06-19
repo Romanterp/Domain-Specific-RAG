@@ -102,28 +102,72 @@ class MirageAttributor:
 
     # ---- prompt construction with tracked passage token spans ----
     def _build_prompt_ids(self, question: str, passages: list[dict], with_context: bool):
-        """Return (ids[1,T], spans[(tag,start,end)]). Plain prompt (no chat
-        template) so passage token spans are exact for CCI."""
+        """Return (ids[1,T], spans[(tag,start,end)]).
+
+        Uses the model's CHAT TEMPLATE so an Instruct model answers in-
+        distribution (a plain prompt makes OLMo-Instruct degenerate). Passage
+        token spans for CCI are recovered by locating each passage's verbatim
+        text in the rendered string via offset mapping. Falls back to a plain
+        tracked prompt only if the chat template / fast-tokenizer offsets are
+        unavailable.
+        """
         import torch
-        ids: list[int] = []
-        spans: list[tuple[str, int, int]] = []
+
+        passages = passages if with_context else []
+        # Build the user message exactly like the generator's RAG prompt so the
+        # attributed answer matches what the pipeline would produce.
+        instr = ("You are answering questions about UN disaster risk reduction using "
+                 "ONLY the context passages below. Do not use outside knowledge. If the "
+                 "answer is not in the passages, say you cannot answer from the provided "
+                 "context.\n\n") if with_context else ""
+        ctx = ""
+        if passages:
+            ctx = "Context:\n" + "\n\n".join(
+                f"[P{i}] {p.get('text','').strip()}" for i, p in enumerate(passages, 1)
+            ) + "\n\n"
+        user = f"{instr}{ctx}Question: {question}"
+
+        try:
+            rendered = self.tok.apply_chat_template(
+                [{"role": "user", "content": user}],
+                tokenize=False, add_generation_prompt=True,
+            )
+            enc = self.tok(rendered, add_special_tokens=False, return_offsets_mapping=True)
+            ids, offs = enc["input_ids"], enc["offset_mapping"]
+            spans: list[tuple[str, int, int]] = []
+            for i, p in enumerate(passages, 1):
+                ptext = p.get("text", "").strip()
+                ci = rendered.find(ptext)
+                if ci < 0 or not ptext:
+                    continue
+                cj = ci + len(ptext)
+                t0 = next((k for k, (a, b) in enumerate(offs) if b > ci), None)
+                t1 = next((k for k, (a, b) in enumerate(offs) if a >= cj), len(ids))
+                if t0 is not None:
+                    spans.append((f"P{i}", t0, t1))
+            if with_context and passages and not spans:
+                raise RuntimeError("no passage spans located in rendered prompt")
+            return torch.tensor([ids]), spans
+        except Exception as e:  # noqa: BLE001 — fall back to plain tracked prompt
+            log.warning(f"[mirage] chat-template span tracking unavailable ({e}); "
+                        "using plain prompt (answer may be lower quality)")
+
+        ids2: list[int] = []
+        spans2: list[tuple[str, int, int]] = []
         if self.tok.bos_token_id is not None:
-            ids.append(self.tok.bos_token_id)
+            ids2.append(self.tok.bos_token_id)
 
         def add(text: str):
-            ids.extend(self.tok(text, add_special_tokens=False)["input_ids"])
+            ids2.extend(self.tok(text, add_special_tokens=False)["input_ids"])
 
         if with_context:
-            add("Answer the question using ONLY the context passages below.\n\nContext:\n")
+            add(instr + "Context:\n")
             for i, p in enumerate(passages, 1):
-                tag = f"P{i}"
-                start = len(ids)
-                add(f"[{tag}] {p.get('text','').strip()}\n")
-                spans.append((tag, start, len(ids)))
-        else:
-            add("Answer the question.\n\n")
+                start = len(ids2)
+                add(f"[P{i}] {p.get('text','').strip()}\n")
+                spans2.append((f"P{i}", start, len(ids2)))
         add(f"\nQuestion: {question}\nAnswer:")
-        return torch.tensor([ids]), spans
+        return torch.tensor([ids2]), spans2
 
     def _generate(self, ids, max_new_tokens: int):
         import torch
