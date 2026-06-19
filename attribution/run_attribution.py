@@ -84,6 +84,9 @@ def main() -> int:
     ap.add_argument("--qdrant-path", default=str(DATA_DIR / "qdrant"))
     ap.add_argument("--top-k", type=int, default=6, help="passages of context")
     ap.add_argument("--max-new-tokens", type=int, default=200)
+    ap.add_argument("--no-cci", action="store_true",
+                    help="skip CCI passage attribution (the gradient step); keeps "
+                         "CTI context-sensitivity. Use on a 16 GB GPU if CCI OOMs.")
     ap.add_argument("--no-olmotrace", action="store_true",
                     help="skip the live OLMoTrace call (intrinsic only)")
     ap.add_argument("--olmotrace-model-id", default="Olmo-3.1-32B-Instruct",
@@ -112,7 +115,8 @@ def main() -> int:
     from attribution.mirage import MirageAttributor
     print("Stage 2/3 — MIRAGE intrinsic attribution (generate + CTI + CCI)")
     mirage = MirageAttributor(model=args.model, dtype=args.dtype)
-    results = [mirage.attribute(q, ps, max_new_tokens=args.max_new_tokens)
+    results = [mirage.attribute(q, ps, max_new_tokens=args.max_new_tokens,
+                                cci_per_sentence=not args.no_cci)
                for q, ps in zip(questions, passages_by_q)]
     del mirage
     free_gpu()

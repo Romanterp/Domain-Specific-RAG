@@ -160,16 +160,29 @@ class MirageAttributor:
 
     def _cci_for_token(self, full_ids, prompt_len: int, answer_pos: int,
                        target_id: int, spans):
-        """grad·input saliency of the answer token's logit, summed per passage."""
+        """grad·input saliency of the answer token's logit, summed per passage.
+
+        Memory-frugal for a 16 GB card: (1) causal truncation — the logit at the
+        target position depends only on tokens up to it, so the tail is dropped;
+        (2) gradient checkpointing — activations are recomputed in backward
+        rather than stored. Passage spans live in the prompt (before the target),
+        so truncation never drops them.
+        """
         import torch
         pos = prompt_len + answer_pos - 1
+        trunc = full_ids[:, : pos + 1]                 # causal: tail irrelevant
+        tpos = trunc.shape[1] - 1
         embed = self.model.get_input_embeddings()
-        inp = embed(full_ids.to(self.device)).detach().clone().requires_grad_(True)
-        logits = self.model(inputs_embeds=inp).logits
-        self.model.zero_grad(set_to_none=True)
-        logits[0, pos, target_id].backward()
-        sal = (inp.grad[0] * inp[0]).sum(-1).abs()  # [T]
-        scored = {tag: float(sal[s:e].sum()) for tag, s, e in spans}
+        inp = embed(trunc.to(self.device)).detach().clone().requires_grad_(True)
+        self.model.gradient_checkpointing_enable()
+        try:
+            logits = self.model(inputs_embeds=inp, use_cache=False).logits
+            self.model.zero_grad(set_to_none=True)
+            logits[0, tpos, target_id].backward()
+            sal = (inp.grad[0] * inp[0]).sum(-1).abs()  # [T]
+            scored = {tag: float(sal[s:e].sum()) for tag, s, e in spans if s < trunc.shape[1]}
+        finally:
+            self.model.gradient_checkpointing_disable()
         total = sum(scored.values()) or 1.0
         return {tag: v / total for tag, v in scored.items()}
 
@@ -221,8 +234,15 @@ class MirageAttributor:
             top_passage, sal = None, {}
             if cci_per_sentence and spans:
                 peak = max(tok_idx, key=lambda j: float(kl[j]))  # most context-sensitive token
-                sal = self._cci_for_token(full_ctx, Lp, peak,
-                                          int(answer_ids[0, peak]), spans)
+                try:
+                    sal = self._cci_for_token(full_ctx, Lp, peak,
+                                              int(answer_ids[0, peak]), spans)
+                except torch.cuda.OutOfMemoryError:
+                    torch.cuda.empty_cache()
+                    log.warning("[mirage] CCI OOM on this span — skipping passage "
+                                "attribution (CTI unaffected). Try fewer passages "
+                                "(--top-k) or --no-cci.")
+                    sal = {}
                 if sal:
                     top_passage = max(sal, key=sal.get)
             span_attrs.append(SpanAttribution(
