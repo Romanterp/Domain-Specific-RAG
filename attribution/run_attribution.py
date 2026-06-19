@@ -83,7 +83,7 @@ def main() -> int:
     ap.add_argument("--bm25-path", default=str(DATA_DIR / "bm25_index.pkl"))
     ap.add_argument("--qdrant-path", default=str(DATA_DIR / "qdrant"))
     ap.add_argument("--top-k", type=int, default=6, help="passages of context")
-    ap.add_argument("--max-new-tokens", type=int, default=200)
+    ap.add_argument("--max-new-tokens", type=int, default=128)
     ap.add_argument("--no-cci", action="store_true",
                     help="skip CCI passage attribution (the gradient step); keeps "
                          "CTI context-sensitivity. Use on a 16 GB GPU if CCI OOMs.")

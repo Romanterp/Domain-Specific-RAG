@@ -170,7 +170,7 @@ class MirageAttributor:
         return torch.tensor([ids2]), spans2
 
     def _generate(self, ids, max_new_tokens: int,
-                  repetition_penalty: float = 1.3, no_repeat_ngram_size: int = 3):
+                  repetition_penalty: float = 1.2, no_repeat_ngram_size: int = 4):
         """Greedy decode with anti-degeneration guards. Greedy alone loops on
         Instruct models once they've answered (the '[1] the [1] the' collapse);
         the repetition penalty + no-repeat n-gram + explicit EOS make it stop.
