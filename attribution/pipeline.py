@@ -265,19 +265,39 @@ class Grounder:
         log.info(f"[grounder] loading {EMBED_MODEL} on {self.device}")
         self.embedder = SentenceTransformer(EMBED_MODEL, device=self.device, revision=EMBED_REVISION)
 
-    def ground(self, spans: list[str], passages: list[dict], max_sources: int = 5) -> list[dict]:
+    def ground(self, spans: list[str], passages: list[dict], max_sources: int = 5,
+               question: str | None = None, answer: str | None = None,
+               pretraining_only: bool = True) -> list[dict]:
         """For each span, cosine-match to every passage and record ALL
-        corroborating sources (>= SOURCE_FLOOR), the support strength, and a
-        separate provenance label."""
+        corroborating sources (>= SOURCE_FLOOR) and the support strength.
+
+        Provenance (separate axis): if `question` and `answer` are given, the
+        WHOLE answer is traced once through OLMoTrace and each span's parametric
+        flag is set by whether a training-data match overlaps it. If they are
+        omitted (or OLMoTrace is unreachable), parametric stays None — the
+        previous behaviour — so the demo/app keeps working offline.
+        """
         import numpy as np
 
+        # One whole-answer OLMoTrace call (not per span — OLMoTrace returns the
+        # maximal matching sub-spans of the full response).
+        ot_ok, traces = (False, {})
+        if question is not None and answer is not None:
+            ot_ok, traces = olmotrace_answer(question, answer, pretraining_only=pretraining_only)
+
+        def provenance_fields(span: str) -> dict:
+            if not ot_ok:
+                return {"parametric": None, "dolma_matches": []}
+            matches = span_training_matches(span, traces)
+            return {"parametric": bool(matches), "dolma_matches": matches}
+
         def empty(span: str) -> dict:
-            ot = olmotrace_lookup(span)
+            pf = provenance_fields(span)
             return {
                 "text": span, "support_score": 0.0, "support": "none",
                 "n_sources": 0, "sources": [],
-                "parametric": ot["parametric"], "dolma_matches": ot["dolma_matches"],
-                "provenance": provenance_for("none", ot["parametric"]),
+                "parametric": pf["parametric"], "dolma_matches": pf["dolma_matches"],
+                "provenance": provenance_for("none", pf["parametric"]),
             }
 
         if not passages:
@@ -306,29 +326,67 @@ class Grounder:
                 })
             top_score = float(sims[i][int(order[0])])
             support = support_bucket(top_score)
-            ot = olmotrace_lookup(span)  # Phase-1 stub → parametric None
+            pf = provenance_fields(span)
             results.append({
                 "text": span,
                 "support_score": round(top_score, 3),
                 "support": support,
                 "n_sources": len(sources),
                 "sources": sources,
-                "parametric": ot["parametric"],
-                "dolma_matches": ot["dolma_matches"],
-                "provenance": provenance_for(support, ot["parametric"]),
+                "parametric": pf["parametric"],
+                "dolma_matches": pf["dolma_matches"],
+                "provenance": provenance_for(support, pf["parametric"]),
             })
         return results
 
 
 # =========================================================================
-# OLMoTrace — Phase 2 stub
+# OLMoTrace — extrinsic provenance (Ai2 Playground backend, OLMo-3 index)
 # =========================================================================
-def olmotrace_lookup(span_text: str) -> dict:
-    """Placeholder for OLMoTrace parametric attribution.
+def _norm_ws(s: str) -> str:
+    return re.sub(r"\s+", " ", s or "").strip().lower()
 
-    Phase 2: query OLMoTrace (Ai2) for verbatim/near-verbatim matches of
-    `span_text` against OLMo's Dolma training corpus. Returns whether the span
-    appears in training data and the matching documents. Until that's wired,
-    `parametric` is None so the UI shows RAG grounding only.
+
+def olmotrace_answer(question: str, answer: str, pretraining_only: bool = True,
+                     max_documents: int = 10) -> tuple[bool, dict]:
+    """Trace the WHOLE answer once against OLMo's training index.
+
+    Returns (ok, traces) where traces maps each matched answer substring to its
+    list of training-document matches (see olmotrace_playground.per_span). On any
+    failure (offline, endpoint down) returns (False, {}) so callers fall back to
+    parametric=None rather than crashing.
     """
+    try:
+        from attribution.olmotrace_playground import trace_response, per_span
+        data = trace_response(question, answer, max_documents=max_documents)
+        return True, per_span(data, pretraining_only=pretraining_only)
+    except Exception as e:  # noqa: BLE001 — offline / endpoint change must not crash grounding
+        log.warning(f"[olmotrace] unavailable ({type(e).__name__}: {e}); parametric=None")
+        return False, {}
+
+
+def span_training_matches(span_text: str, traces: dict) -> list[dict]:
+    """Training-data matches that overlap this span. OLMoTrace's matched
+    substrings are substrings of the full answer, so a span is 'in training
+    data' if any matched substring is contained in it."""
+    sn = _norm_ws(span_text)
+    if not sn:
+        return []
+    out = []
+    for matched, docs in traces.items():
+        m = _norm_ws(matched)
+        if m and m in sn:
+            for d in docs:
+                out.append({
+                    "matched": matched, "corpus": d.get("corpus"),
+                    "usage": d.get("usage"), "url": d.get("url"),
+                    "snippet": d.get("snippet"),
+                })
+    return out
+
+
+def olmotrace_lookup(span_text: str) -> dict:
+    """Deprecated per-span shim. OLMoTrace operates on the whole answer (see
+    olmotrace_answer); kept only so any old caller still imports. Always
+    parametric=None — use Grounder.ground(question=, answer=) for real traces."""
     return {"parametric": None, "dolma_matches": []}
