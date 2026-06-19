@@ -32,10 +32,15 @@ Usage
 """
 
 import argparse
+import hashlib
+import json
 import sys
 import time
+from pathlib import Path
 
 import requests
+
+_COUNT_CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "attribution" / "_infinigram_cache"
 
 API_BASE = "https://api.infini-gram.io/"
 DEFAULT_INDEX = "v4_dolma-v1_7_llama"  # OLMo foundational training data (2.6T)
@@ -74,6 +79,26 @@ def _post(payload: dict, retries: int = 4, timeout: int = 25) -> dict:
 def count(query: str, index: str = DEFAULT_INDEX) -> dict:
     """How many times the exact n-gram appears in the corpus."""
     return _post({"index": index, "query_type": "count", "query": query})
+
+
+def count_cached(query: str, index: str = DEFAULT_INDEX) -> dict:
+    """count() with on-disk caching keyed by (index, query). A phrase's corpus
+    frequency is fixed, so caching keeps a production run (hundreds of repeated
+    spans) cheap and reproducible from disk."""
+    key = hashlib.sha256(f"{index}␟{query}".encode("utf-8")).hexdigest()[:24]
+    cf = _COUNT_CACHE_DIR / f"{key}.json"
+    if cf.exists():
+        try:
+            return json.loads(cf.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    data = count(query, index)
+    try:
+        _COUNT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cf.write_text(json.dumps(data), encoding="utf-8")
+    except Exception:
+        pass
+    return data
 
 
 def find(query: str, index: str = DEFAULT_INDEX) -> dict:

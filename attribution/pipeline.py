@@ -267,7 +267,8 @@ class Grounder:
 
     def ground(self, spans: list[str], passages: list[dict], max_sources: int = 5,
                question: str | None = None, answer: str | None = None,
-               pretraining_only: bool = True) -> list[dict]:
+               pretraining_only: bool = True, min_match_words: int = 6,
+               rarity_index: str | None = None, max_count: int = 500) -> list[dict]:
         """For each span, cosine-match to every passage and record ALL
         corroborating sources (>= SOURCE_FLOOR) and the support strength.
 
@@ -288,8 +289,10 @@ class Grounder:
         def provenance_fields(span: str) -> dict:
             if not ot_ok:
                 return {"parametric": None, "dolma_matches": []}
-            matches = span_training_matches(span, traces)
-            return {"parametric": bool(matches), "dolma_matches": matches}
+            parametric, matches = span_provenance(
+                span, traces, min_match_words=min_match_words,
+                rarity_index=rarity_index, max_count=max_count)
+            return {"parametric": parametric, "dolma_matches": matches}
 
         def empty(span: str) -> dict:
             pf = provenance_fields(span)
@@ -365,24 +368,91 @@ def olmotrace_answer(question: str, answer: str, pretraining_only: bool = True,
         return False, {}
 
 
-def span_training_matches(span_text: str, traces: dict) -> list[dict]:
+def span_training_matches(span_text: str, traces: dict, min_match_words: int = 6) -> list[dict]:
     """Training-data matches that overlap this span. OLMoTrace's matched
     substrings are substrings of the full answer, so a span is 'in training
-    data' if any matched substring is contained in it."""
+    data' if any matched substring is contained in it.
+
+    `min_match_words` drops short, generic n-gram matches (e.g. "the last 20
+    years we have") that co-occur in unrelated training docs and inflate the
+    parametric signal. Raise it to be more conservative; the matched phrase
+    length is also recorded so the analysis can weight by it.
+    """
     sn = _norm_ws(span_text)
     if not sn:
         return []
     out = []
     for matched, docs in traces.items():
         m = _norm_ws(matched)
-        if m and m in sn:
-            for d in docs:
-                out.append({
-                    "matched": matched, "corpus": d.get("corpus"),
-                    "usage": d.get("usage"), "url": d.get("url"),
-                    "snippet": d.get("snippet"),
-                })
+        if not m or m not in sn:
+            continue
+        n_words = len(m.split())
+        if n_words < min_match_words:
+            continue
+        for d in docs:
+            out.append({
+                "matched": matched, "match_words": n_words, "corpus": d.get("corpus"),
+                "usage": d.get("usage"), "url": d.get("url"), "snippet": d.get("snippet"),
+            })
     return out
+
+
+def annotate_rarity(matches: list[dict], index: str = "olmo-mix-1124",
+                    max_count: int = 500) -> tuple[list[dict], bool]:
+    """Tag each match with its corpus frequency (infini-gram) and whether it is
+    'distinctive' — verbatim provenance is only convincing when a match is both
+    long (already filtered) AND rare. A phrase occurring thousands of times is
+    coincidental co-occurrence, not evidence the claim came from training.
+
+    distinctive ⇔ 0 < corpus_count ≤ max_count. Returns (matches, ok); ok=False
+    if infini-gram is unreachable so callers fall back to the length-only signal.
+    Frequency is checked against an OLMo-lineage index (default olmo-mix-1124,
+    available on the public infini-gram API; the playground trace itself uses
+    OLMo-3's index, a documented approximation for the rarity estimate).
+    """
+    if not matches:
+        return matches, True
+    try:
+        from attribution.olmotrace import count_cached, OLMO_INDEXES
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"[infini-gram] unavailable ({e}); rarity check skipped")
+        return matches, False
+    idx = OLMO_INDEXES.get(index, index)
+    any_ok = False
+    freq: dict[str, int | None] = {}
+    for m in matches:
+        phrase = m.get("matched", "")
+        if phrase not in freq:
+            try:
+                freq[phrase] = int(count_cached(phrase, idx).get("count", 0))
+                any_ok = True
+            except Exception as e:  # noqa: BLE001
+                log.warning(f"[infini-gram] count failed ({e})")
+                freq[phrase] = None
+        c = freq[phrase]
+        m["corpus_count"] = c
+        m["distinctive"] = c is not None and 0 < c <= max_count
+    return matches, any_ok
+
+
+def span_provenance(span_text: str, traces: dict, min_match_words: int = 6,
+                    rarity_index: str | None = None, max_count: int = 500) -> tuple:
+    """(parametric, matches) for one span.
+
+    Length-only (rarity_index=None): parametric ⇔ any verbatim match ≥
+    min_match_words overlaps the span. Rigorous (rarity_index set): parametric ⇔
+    a match is both long AND rare (distinctive); long-but-common matches are
+    recorded but do NOT count as provenance. Offline-safe: if infini-gram is
+    unreachable, falls back to the length-only decision.
+    """
+    matches = span_training_matches(span_text, traces, min_match_words=min_match_words)
+    if not matches:
+        return False, []
+    if rarity_index:
+        matches, ok = annotate_rarity(matches, index=rarity_index, max_count=max_count)
+        if ok:
+            return any(m.get("distinctive") for m in matches), matches
+    return bool(matches), matches  # length-only (or rarity unavailable)
 
 
 def olmotrace_lookup(span_text: str) -> dict:
