@@ -127,9 +127,12 @@ class MirageAttributor:
             ) + "\n\n"
         user = f"{instr}{ctx}Question: {question}"
 
+        sys_msg = ("You are a helpful assistant answering questions about UN disaster "
+                   "risk reduction. Answer concisely using only the provided context.")
         try:
             rendered = self.tok.apply_chat_template(
-                [{"role": "user", "content": user}],
+                [{"role": "system", "content": sys_msg},
+                 {"role": "user", "content": user}],
                 tokenize=False, add_generation_prompt=True,
             )
             enc = self.tok(rendered, add_special_tokens=False, return_offsets_mapping=True)
@@ -170,21 +173,26 @@ class MirageAttributor:
         return torch.tensor([ids2]), spans2
 
     def _generate(self, ids, max_new_tokens: int,
-                  repetition_penalty: float = 1.2, no_repeat_ngram_size: int = 4):
-        """Greedy decode with anti-degeneration guards. Greedy alone loops on
-        Instruct models once they've answered (the '[1] the [1] the' collapse);
-        the repetition penalty + no-repeat n-gram + explicit EOS make it stop.
-        These affect only WHICH tokens are produced — CTI/CCI then attribute
-        whatever was generated, so the measurement is unbiased."""
+                  repetition_penalty: float = 1.15, no_repeat_ngram_size: int = 0):
+        """Greedy decode with a MILD repetition penalty + explicit EOS.
+
+        no_repeat_ngram_size is OFF by default: in this domain the answer must
+        legitimately repeat key phrases ("Disaster Risk Reduction"), and hard
+        n-gram blocking mangles them into garbage ("DRRisk reduction"). A soft
+        repetition_penalty discourages the '[1] the [1] the' loop without banning
+        necessary repeats. Decoding-only — CTI/CCI attribute whatever is produced,
+        so the measurement stays unbiased."""
         import torch
+        kwargs = dict(
+            max_new_tokens=max_new_tokens, do_sample=False,
+            repetition_penalty=repetition_penalty,
+            eos_token_id=self.tok.eos_token_id,
+            pad_token_id=self.tok.pad_token_id or self.tok.eos_token_id,
+        )
+        if no_repeat_ngram_size:
+            kwargs["no_repeat_ngram_size"] = no_repeat_ngram_size
         with torch.no_grad():
-            gen = self.model.generate(
-                ids.to(self.device), max_new_tokens=max_new_tokens, do_sample=False,
-                repetition_penalty=repetition_penalty,
-                no_repeat_ngram_size=no_repeat_ngram_size,
-                eos_token_id=self.tok.eos_token_id,
-                pad_token_id=self.tok.pad_token_id or self.tok.eos_token_id,
-            )
+            gen = self.model.generate(ids.to(self.device), **kwargs)
         return gen[:, ids.shape[1]:].cpu()  # answer token ids only
 
     def _answer_logprobs(self, prompt_ids, answer_ids):
