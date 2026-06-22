@@ -332,7 +332,7 @@ class MirageAttributor:
         return {tag: v / total for tag, v in scored.items()}
 
     def attribute(self, question: str, passages: list[dict],
-                  max_new_tokens: int = 200, cci_per_sentence: bool = True) -> MirageResult:
+                  max_new_tokens: int = 256, cci_per_sentence: bool = True) -> MirageResult:
         """Full intrinsic attribution for one (question, passages)."""
         import torch
 

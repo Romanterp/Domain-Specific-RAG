@@ -88,7 +88,9 @@ def main() -> int:
                     help="passages of context per condition. MUST match the contrast "
                          "set's classification k (select_contrast_set --top-k, default 10) "
                          "or class labels diverge from runtime gold presence (esp. 'gain').")
-    ap.add_argument("--max-new-tokens", type=int, default=160)
+    ap.add_argument("--max-new-tokens", type=int, default=256,
+                    help="generation cap; greedy+EOS stops short answers early, so this "
+                         "just avoids truncating complete answers mid-claim (matters for the 32B)")
     ap.add_argument("--loo-mode", choices=["gold", "all"], default="gold",
                     help="'gold' = LOO only the gold passage (2 forwards, scalable — "
                          "the headline causal signal); 'all' = every passage (n+1 "
