@@ -68,6 +68,23 @@ def cohens_d(vals):
     return float(a.mean() / a.std(ddof=1)) if len(a) > 1 and a.std(ddof=1) > 0 else float("nan")
 
 
+def spearman(a, b):
+    """Spearman rank correlation (scipy if available, else NumPy fallback)."""
+    if len(a) < 3:
+        return float("nan"), None
+    try:
+        from scipy.stats import spearmanr
+        r = spearmanr(a, b)
+        return float(r.statistic), float(r.pvalue)
+    except Exception:  # noqa: BLE001
+        def rank(x):
+            return np.argsort(np.argsort(np.asarray(x, float))).astype(float)
+        ra, rb = rank(a), rank(b)
+        if ra.std() == 0 or rb.std() == 0:
+            return 0.0, None
+        return float(np.corrcoef(ra, rb)[0, 1]), None
+
+
 def boot_ci_diff(x, y, B=2000, seed=42):
     """95% CI on mean(x) − mean(y) for unpaired samples (resample each)."""
     if len(x) < 2 or len(y) < 2:
@@ -179,6 +196,45 @@ def main() -> int:
             out.append(f"| {cls} | {cond} | {len(drops)} | "
                        f"{np.mean(drops):.2f} [{lo:.2f}, {hi:.2f}] | {topfrac} |")
     out.append("")
+
+    # ---- position-confound check: does gold LOO track gold's rank/position? ----
+    out.append("## Position-confound check (gold LOO vs gold rank)\n")
+    out.append("Passages are ordered by rank in the prompt (P1 = rank 1, first in context), "
+               "so gold_rank IS gold's prompt position. If gold_loo correlates with rank — or "
+               "shows a U-shape across rank buckets — then per-passage LOO is position-confounded "
+               "(lost-in-the-middle: ends attended more than the middle), not pure content. In "
+               "that case gold_loo is a weak signal and the CTI shift (whole-context, "
+               "position-robust) is the one to trust.\n")
+    pos_pairs = []
+    for q in by_q.values():
+        for cond in CONDITIONS:
+            r = q.get(cond)
+            if r is None or not usable(r):
+                continue
+            gr, gl = r.get("gold_rank"), r.get("gold_loo_drop")
+            if gr is not None and gl is not None:
+                pos_pairs.append((gr, gl))
+    if len(pos_pairs) >= 5:
+        rho, pv = spearman([p[0] for p in pos_pairs], [p[1] for p in pos_pairs])
+        out.append(f"- n={len(pos_pairs)} (gold present & usable); "
+                   f"Spearman(gold_rank, gold_loo) = {rho:+.3f}"
+                   + (f" (p={pv:.3f})" if pv is not None else ""))
+        buckets = [("rank 1", lambda r: r == 1), ("2-3", lambda r: 2 <= r <= 3),
+                   ("4-7", lambda r: 4 <= r <= 7), ("8+", lambda r: r >= 8)]
+        out.append("\n| gold rank bucket | n | mean gold LOO |")
+        out.append("|---|---:|---:|")
+        for lab, pred in buckets:
+            vals = [g for rk, g in pos_pairs if pred(rk)]
+            if vals:
+                out.append(f"| {lab} | {len(vals)} | {np.mean(vals):.2f} |")
+        out.append("\n*Flat across buckets → content dominates (gold_loo trustworthy). "
+                   "Monotone or U-shaped (high at rank 1 & 8+, low at 4-7) → position confound → "
+                   "lead with CTI shift, report gold_loo with the caveat.*")
+    else:
+        out.append(f"- Too few gold-present usable records ({len(pos_pairs)}) for the check "
+                   "(needs the full run; the 7B smoke is too small).")
+    out.append("")
+
     out.append("*CTI = KL(with-context ‖ without-context), higher = more context-driven. "
                "Gold LOO drop = fall in the fixed answer's log-prob when the gold passage is "
                "attention-masked. Refusals/empties excluded from all means.*")
