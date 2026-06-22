@@ -89,6 +89,10 @@ def main() -> int:
                          "set's classification k (select_contrast_set --top-k, default 10) "
                          "or class labels diverge from runtime gold presence (esp. 'gain').")
     ap.add_argument("--max-new-tokens", type=int, default=160)
+    ap.add_argument("--loo-mode", choices=["gold", "all"], default="gold",
+                    help="'gold' = LOO only the gold passage (2 forwards, scalable — "
+                         "the headline causal signal); 'all' = every passage (n+1 "
+                         "forwards, enables the 'gold = top passage' check; use on a subset)")
     ap.add_argument("--out", default=str(DATA_DIR / "reliance_records.jsonl"))
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--shard", type=int, default=0, help="this shard index (SLURM array)")
@@ -173,13 +177,17 @@ def main() -> int:
                                  if p.get("chunk_id") == q["gold_chunk_id"]), None)
 
                 if answer_empty:  # P3: degenerate generation — don't fake a 0 LOO effect
-                    full_lp, loo, gold_drop = None, [], None
+                    full_lp, loo, gold_drop = None, [None] * len(ps), None
+                elif args.loo_mode == "gold" and gold_idx is None:
+                    # gold not in this condition's context → no gold LOO to compute
+                    full_lp, loo, gold_drop = None, [None] * len(ps), None
                 else:
-                    # LOO via ATTENTION-MASKING: hide each passage's tokens from
+                    # LOO via ATTENTION-MASKING: hide a passage's tokens from
                     # attention with positions + length held fixed, so the drop
                     # isolates content (not the prompt-length/position shift that
                     # text-blanking leaked). >0 = passage supported the answer.
-                    full_lp, raw_drops = attr.loo_drops(q["question"], ps, res.answer)
+                    only = gold_idx if args.loo_mode == "gold" else None
+                    full_lp, raw_drops = attr.loo_drops(q["question"], ps, res.answer, only_idx=only)
                     loo = [round(d, 4) if d is not None else None for d in raw_drops]
                     full_lp = round(full_lp, 4)
                     gold_drop = (loo[gold_idx] if (gold_idx is not None

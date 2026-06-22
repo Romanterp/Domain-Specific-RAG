@@ -258,7 +258,8 @@ class MirageAttributor:
             total += float(lp[int(answer_ids[0, j])])
         return total
 
-    def loo_drops(self, question: str, passages: list[dict], answer_text: str):
+    def loo_drops(self, question: str, passages: list[dict], answer_text: str,
+                  only_idx: int | None = None):
         """Per-passage leave-one-out importance via attention-masking.
 
         drop_i = logp(answer | all passages) − logp(answer | all but passage i),
@@ -267,6 +268,10 @@ class MirageAttributor:
         drops aligned to `passages` order (None where a passage's tokens could
         not be located in the prompt). Builds prompt + answer once and only flips
         the attention mask per passage — so it's also cheaper than rebuilding.
+
+        only_idx: if set, compute the drop ONLY for that passage (others None) —
+        for the gold-only mode that keeps the 32B production run tractable
+        (2 forwards instead of n+1).
         """
         ids, spans = self._build_prompt_ids(question, passages, with_context=True)
         tgt = self.tok(answer_text, add_special_tokens=False, return_tensors="pt").input_ids
@@ -276,6 +281,9 @@ class MirageAttributor:
         span_by_tag = {tag: (s, e) for tag, s, e in spans}
         drops = []
         for i in range(len(passages)):
+            if only_idx is not None and i != only_idx:
+                drops.append(None)
+                continue
             span = span_by_tag.get(f"P{i + 1}")
             if span is None:
                 drops.append(None)
