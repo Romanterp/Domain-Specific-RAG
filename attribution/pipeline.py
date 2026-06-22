@@ -156,8 +156,16 @@ class Retriever:
             from retrieval.rerank import Reranker
             self.reranker = Reranker(device=self.device)
 
-    def retrieve(self, query: str, candidate_pool: int = 50, top_k: int = 10) -> list[dict]:
+    def retrieve(self, query: str, candidate_pool: int = 50, top_k: int = 10,
+                 use_hybrid: bool | None = None, use_rerank: bool | None = None) -> list[dict]:
+        """Per-call condition override: with hybrid+rerank loaded, pass
+        use_hybrid=False, use_rerank=False to get the dense-only condition from
+        the SAME instance — so the reliance experiment runs both conditions
+        without loading the models twice."""
         from retrieval.hybrid import reciprocal_rank_fusion
+
+        uh = self.use_hybrid if use_hybrid is None else use_hybrid
+        ur = self.use_rerank if use_rerank is None else use_rerank
 
         qvec = self.embedder.encode(
             [query], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False
@@ -176,14 +184,14 @@ class Retriever:
                 "text": p.get("text", ""),
             })
 
-        if self.bm25 is not None:
+        if self.bm25 is not None and uh:
             bm25_hits = self.bm25.query(query, top_k=candidate_pool)
-            fused_top = candidate_pool if self.reranker else top_k
+            fused_top = candidate_pool if (self.reranker and ur) else top_k
             candidates = reciprocal_rank_fusion(dense_hits, bm25_hits, k=60, top_k=fused_top)
         else:
             candidates = dense_hits
 
-        if self.reranker is not None:
+        if self.reranker is not None and ur:
             candidates = self.reranker.rerank(query, candidates, top_k=top_k)
         else:
             candidates = candidates[:top_k]

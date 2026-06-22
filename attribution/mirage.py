@@ -116,10 +116,13 @@ class MirageAttributor:
         passages = passages if with_context else []
         # Build the user message exactly like the generator's RAG prompt so the
         # attributed answer matches what the pipeline would produce.
+        # Instruction held CONSTANT across with/without-context: CTI =
+        # KL(with||without) must isolate the PASSAGES, not the instruction
+        # framing. Only the Context block differs between the two prompts.
         instr = ("You are answering questions about UN disaster risk reduction using "
                  "ONLY the context passages below. Do not use outside knowledge. If the "
                  "answer is not in the passages, say you cannot answer from the provided "
-                 "context.\n\n") if with_context else ""
+                 "context.\n\n")
         ctx = ""
         if passages:
             ctx = "Context:\n" + "\n\n".join(
@@ -163,8 +166,9 @@ class MirageAttributor:
         def add(text: str):
             ids2.extend(self.tok(text, add_special_tokens=False)["input_ids"])
 
+        add(instr)  # constant across conditions (B3)
         if with_context:
-            add(instr + "Context:\n")
+            add("Context:\n")
             for i, p in enumerate(passages, 1):
                 start = len(ids2)
                 add(f"[P{i}] {p.get('text','').strip()}\n")
@@ -207,6 +211,23 @@ class MirageAttributor:
         out = [F.log_softmax(logits[Lp + j - 1].float(), dim=-1)
                for j in range(answer_ids.shape[1])]
         return torch.stack(out)  # [A, V]
+
+    def answer_logprob(self, question: str, passages: list[dict], answer_text: str) -> float:
+        """Total teacher-forced log-prob of `answer_text` given `passages`.
+
+        The forward-only primitive behind LOO: re-score the SAME fixed answer
+        under a passage subset (drop one passage → measure how far the answer's
+        probability falls = that passage's causal importance). Reuses the exact
+        prompt builder and per-token log-softmax used for CTI, so conditioning
+        matches. NB re-tokenises answer_text (R7 re-encoding caveat); fine for the
+        relative LOO drop.
+        """
+        ids, _ = self._build_prompt_ids(question, passages, with_context=True)
+        tgt = self.tok(answer_text, add_special_tokens=False, return_tensors="pt").input_ids
+        if tgt.shape[1] == 0:
+            return 0.0
+        lp = self._answer_logprobs(ids, tgt)  # [A, V] log-softmax per target position
+        return float(sum(lp[j, int(tgt[0, j])] for j in range(tgt.shape[1])))
 
     def _token_char_offsets(self, answer_ids) -> list[tuple[int, int]]:
         """Char span of each answer token via cumulative decode (BPE-additive)."""
@@ -256,7 +277,18 @@ class MirageAttributor:
         ids_noctx, _ = self._build_prompt_ids(question, passages, with_context=False)
 
         answer_ids = self._generate(ids_ctx, max_new_tokens)
-        answer = self.tok.decode(answer_ids[0], skip_special_tokens=True).strip()
+        # P1: drop a trailing EOS so it doesn't leak into CTI / sentence mapping.
+        if (answer_ids.shape[1] > 0 and self.tok.eos_token_id is not None
+                and int(answer_ids[0, -1]) == self.tok.eos_token_id):
+            answer_ids = answer_ids[:, :-1]
+        raw = self.tok.decode(answer_ids[0], skip_special_tokens=True)
+        answer = raw.strip()
+
+        passage_tags = {f"P{i}": {"chunk_id": p.get("chunk_id"), "title": p.get("title")}
+                        for i, p in enumerate(passages, 1)}
+        if answer_ids.shape[1] == 0:  # degenerate empty generation — caller flags it
+            return MirageResult(question=question, answer="", token_cti=[],
+                                spans=[], passage_tags=passage_tags)
 
         # CTI: KL(with || without) per answer token.
         lp_with = self._answer_logprobs(ids_ctx, answer_ids)
@@ -266,8 +298,12 @@ class MirageAttributor:
         token_cti = [(self.tok.decode(answer_ids[0, j:j + 1]).strip(), float(kl[j]))
                      for j in range(answer_ids.shape[1])]
 
-        # Map tokens → sentences via char offsets.
-        offs = self._token_char_offsets(answer_ids)
+        # Map tokens → sentences via char offsets. B1: _token_char_offsets builds
+        # offsets from the UNSTRIPPED cumulative decode, but sentences are located
+        # in the STRIPPED answer — subtract the leading-whitespace length so both
+        # share one coordinate system, else boundary tokens get mis-assigned.
+        lead = len(raw) - len(raw.lstrip())
+        offs = [(a - lead, b - lead) for (a, b) in self._token_char_offsets(answer_ids)]
         sentences = split_sentences(answer)
         sent_ranges = []
         cur = 0
@@ -280,8 +316,6 @@ class MirageAttributor:
 
         full_ctx = torch.cat([ids_ctx, answer_ids], dim=1)
         Lp = ids_ctx.shape[1]
-        passage_tags = {f"P{i}": {"chunk_id": p.get("chunk_id"), "title": p.get("title")}
-                        for i, p in enumerate(passages, 1)}
 
         span_attrs = []
         for (s_start, s_end), sent in zip(sent_ranges, sentences):

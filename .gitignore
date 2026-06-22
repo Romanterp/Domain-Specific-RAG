@@ -24,6 +24,11 @@ data/*
 !data/doc2query_holdout_ids.txt
 # ...but never the bulk chunk dump (211 MB, regenerable from texts/)
 data/chunks.jsonl
+# doc2query full-corpus shard intermediates (superseded by the merged
+# doc2query_eval_full.jsonl) + transient/regenerable eval outputs
+data/doc2query_eval_shard*.jsonl
+data/reliance_records.jsonl
+data/d2q_full_hyb_*.jsonl
 
 # NEVER track: browser profiles (cookies/credentials), local stores, corpora
 # (covered by data/* above; listed explicitly as a guard if data/* is edited)
