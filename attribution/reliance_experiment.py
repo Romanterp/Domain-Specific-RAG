@@ -175,17 +175,15 @@ def main() -> int:
                 if answer_empty:  # P3: degenerate generation — don't fake a 0 LOO effect
                     full_lp, loo, gold_drop = None, [], None
                 else:
-                    # LOO: BLANK each passage's text but KEEP its slot/tag (B4) so the
-                    # delta isolates content, not tag renumbering or prompt-length shift.
-                    full_lp = attr.answer_logprob(q["question"], ps, res.answer)
-                    loo = []
-                    for i in range(len(ps)):
-                        sub = [({**p, "text": "[removed]"} if k == i else p)
-                               for k, p in enumerate(ps)]
-                        lp_i = attr.answer_logprob(q["question"], sub, res.answer)
-                        loo.append(round(full_lp - lp_i, 4))  # >0 = passage supported
+                    # LOO via ATTENTION-MASKING: hide each passage's tokens from
+                    # attention with positions + length held fixed, so the drop
+                    # isolates content (not the prompt-length/position shift that
+                    # text-blanking leaked). >0 = passage supported the answer.
+                    full_lp, raw_drops = attr.loo_drops(q["question"], ps, res.answer)
+                    loo = [round(d, 4) if d is not None else None for d in raw_drops]
                     full_lp = round(full_lp, 4)
-                    gold_drop = (loo[gold_idx] if gold_idx is not None else None)
+                    gold_drop = (loo[gold_idx] if (gold_idx is not None
+                                                   and loo[gold_idx] is not None) else None)
 
                 rec = {
                     "q_idx": q["q_idx"], "contrast_class": q["contrast_class"],

@@ -229,6 +229,61 @@ class MirageAttributor:
         lp = self._answer_logprobs(ids, tgt)  # [A, V] log-softmax per target position
         return float(sum(lp[j, int(tgt[0, j])] for j in range(tgt.shape[1])))
 
+    def answer_logprob_masked(self, prompt_ids, answer_ids, mask_span=None) -> float:
+        """Summed teacher-forced log-prob of answer_ids given prompt_ids, with an
+        optional context span ATTENTION-MASKED.
+
+        Masking hides a passage's tokens from attention while keeping their
+        positions and the total sequence length byte-identical — explicit
+        position_ids stop the masked-middle from renumbering downstream
+        positions. So a leave-one-out drop isolates the passage's *content*, not
+        prompt-length / position shifts (the residual flaw in text-blanking).
+        Forward-only.
+        """
+        import torch
+        import torch.nn.functional as F
+        full = torch.cat([prompt_ids, answer_ids], dim=1).to(self.device)
+        T, Lp = full.shape[1], prompt_ids.shape[1]
+        attn = torch.ones((1, T), dtype=torch.long, device=self.device)
+        if mask_span is not None:
+            s, e = mask_span
+            attn[0, s:e] = 0  # hide these context-key tokens from every query
+        pos = torch.arange(T, device=self.device).unsqueeze(0)  # positions FIXED
+        with torch.inference_mode():
+            logits = self.model(input_ids=full, attention_mask=attn,
+                                position_ids=pos).logits[0]
+        total = 0.0
+        for j in range(answer_ids.shape[1]):
+            lp = F.log_softmax(logits[Lp + j - 1].float(), dim=-1)
+            total += float(lp[int(answer_ids[0, j])])
+        return total
+
+    def loo_drops(self, question: str, passages: list[dict], answer_text: str):
+        """Per-passage leave-one-out importance via attention-masking.
+
+        drop_i = logp(answer | all passages) − logp(answer | all but passage i),
+        where "but passage i" masks that passage's tokens from attention with the
+        rest of the prompt held identical. Returns (full_logprob, drops) with
+        drops aligned to `passages` order (None where a passage's tokens could
+        not be located in the prompt). Builds prompt + answer once and only flips
+        the attention mask per passage — so it's also cheaper than rebuilding.
+        """
+        ids, spans = self._build_prompt_ids(question, passages, with_context=True)
+        tgt = self.tok(answer_text, add_special_tokens=False, return_tensors="pt").input_ids
+        if tgt.shape[1] == 0:
+            return 0.0, [None] * len(passages)
+        full_lp = self.answer_logprob_masked(ids, tgt, mask_span=None)
+        span_by_tag = {tag: (s, e) for tag, s, e in spans}
+        drops = []
+        for i in range(len(passages)):
+            span = span_by_tag.get(f"P{i + 1}")
+            if span is None:
+                drops.append(None)
+                continue
+            lp_i = self.answer_logprob_masked(ids, tgt, mask_span=span)
+            drops.append(full_lp - lp_i)
+        return full_lp, drops
+
     def _token_char_offsets(self, answer_ids) -> list[tuple[int, int]]:
         """Char span of each answer token via cumulative decode (BPE-additive)."""
         offsets = []
