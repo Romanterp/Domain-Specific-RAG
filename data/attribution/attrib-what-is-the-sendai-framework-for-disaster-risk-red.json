@@ -1,0 +1,30 @@
+{
+  "question": "What is the Sendai Framework for Disaster Risk Reduction?",
+  "model": "allenai/Olmo-3-7B-Instruct",
+  "answer": "The Sendai Framework for Disaster Risk Reduction",
+  "olmotrace_ok": true,
+  "olmotrace_model_id": "Olmo-3.1-32B-Instruct",
+  "passage_tags": {
+    "P1": {
+      "chunk_id": "words-action-guidelines-enhancing-disaster-preparedness-effective-response_2:8:0",
+      "title": "Words into Action guidelines: Enhancing disaster preparedness for effective response"
+    },
+    "P2": {
+      "chunk_id": "words-action-guidelines-using-traditional-and-indigenous-knowledges-disaster-risk:8:0",
+      "title": "Words into Action guidelines: Using traditional and indigenous knowledges for disaster risk reduction"
+    }
+  },
+  "spans": [
+    {
+      "text": "The Sendai Framework for Disaster Risk Reduction",
+      "cti_mean": 0.4868,
+      "cti_max": 2.7901,
+      "reliance": "context",
+      "top_passage": null,
+      "passage_saliency": {},
+      "parametric": false,
+      "training_matches": [],
+      "quadrant": "context-driven, novel"
+    }
+  ]
+}

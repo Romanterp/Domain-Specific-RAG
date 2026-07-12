@@ -1,0 +1,54 @@
+{
+  "question": "What natural hazard-related data from the last 20 years shows a sharp increase compared to the previous 20-year period?",
+  "model": "allenai/Olmo-3-7B-Instruct",
+  "answer": "Answer based strictly according to [P1], [P2]\nThe answers this question:\n\n**They**\n\nFrom P1 & P2 so \n\nSo it's an d\n\n[p3]\n\nThat and p4\n\nWhich has really driven\n\nIn they occurring plus\n\n[1] the impact eventful [that] which emin the level of damageS situation becomes more than ever thossevere weather events also a contributing factors make war\nan increasingly hazardous events; the issue which we see.\nRecurring drought frequency with elsetheis experience documented history pointsTo several years of adjusting to being less frequent\n\nAnd severe eithers and very fewch among dryness, to \nemphasize fragility countryAn increasing climate threats\nwhich erode resilients lie And hirs globally tains\nworsening average precisely calculated for the past decades trend is going   to worseit s\nenough extreme weather events every year without\nanywhere around the world his present increased he",
+  "olmotrace_ok": true,
+  "olmotrace_model_id": "Olmo-3.1-32B-Instruct",
+  "passage_tags": {
+    "P1": {
+      "chunk_id": "integrating-disaster-risk-reduction-and-climate-change-adaptation-un-sustainable_14:3:0",
+      "title": "Integrating Disaster Risk Reduction and Climate Change Adaptation in the UN Sustainable Development Cooperation Framework"
+    },
+    "P2": {
+      "chunk_id": "integrating-disaster-risk-reduction-and-climate-change-adaptation-un-sustainable_12:3:0",
+      "title": "Integrating Disaster Risk Reduction and Climate Change Adaptation in the UN Sustainable Development Cooperation Framework"
+    },
+    "P3": {
+      "chunk_id": "integrating-disaster-risk-reduction-and-climate-change-adaptation-un-sustainable_18:3:0",
+      "title": "Integrating Disaster Risk Reduction and Climate Change Adaptation in the UN Sustainable Development Cooperation Framework"
+    },
+    "P4": {
+      "chunk_id": "integrating-disaster-risk-reduction-and-climate-change-adaptation-un-sustainable_8:3:0",
+      "title": "Integrating Disaster Risk Reduction and Climate Change Adaptation in the UN Sustainable Development Cooperation Framework"
+    }
+  },
+  "spans": [
+    {
+      "text": "Answer based strictly according to [P1], [P2]\nThe answers this question:\n\n**They**\n\nFrom P1 & P2 so \n\nSo it's an d\n\n[p3]\n\nThat and p4\n\nWhich has really driven\n\nIn they occurring plus\n\n[1] the impact eventful [that] which emin the level of damageS situation becomes more than ever thossevere weather events also a contributing factors make war\nan increasingly hazardous events; the issue which we see.",
+      "cti_mean": 3.3819,
+      "cti_max": 13.4038,
+      "reliance": "context",
+      "top_passage": "P1",
+      "passage_saliency": {
+        "P1": 0.483,
+        "P2": 0.302,
+        "P3": 0.167,
+        "P4": 0.047
+      },
+      "parametric": false,
+      "training_matches": [],
+      "quadrant": "context-driven, novel"
+    },
+    {
+      "text": "Recurring drought frequency with elsetheis experience documented history pointsTo several years of adjusting to being less frequent\n\nAnd severe eithers and very fewch among dryness, to \nemphasize fragility countryAn increasing climate threats\nwhich erode resilients lie And hirs globally tains\nworsening average precisely calculated for the past decades trend is going   to worseit s\nenough extreme weather events every year without\nanywhere around the world his present increased he",
+      "cti_mean": 2.474,
+      "cti_max": 6.4011,
+      "reliance": "context",
+      "top_passage": null,
+      "passage_saliency": {},
+      "parametric": false,
+      "training_matches": [],
+      "quadrant": "context-driven, novel"
+    }
+  ]
+}

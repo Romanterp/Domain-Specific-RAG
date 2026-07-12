@@ -1,0 +1,132 @@
+{
+  "id": "sendai-framework-priorities",
+  "question": "What are the four priorities for action in the Sendai Framework?",
+  "pipeline": "hybrid+rerank",
+  "model": "allenai/Olmo-3.1-32B-Instruct",
+  "generated_at": "2026-06-05",
+  "is_mock": true,
+  "note": "Illustrative example so the UI renders before the real builder runs — scores are hand-authored, not measured.",
+  "support_score": 0.67,
+  "answer_plain": "The Sendai Framework for Disaster Risk Reduction 2015-2030 sets out four priorities for action. The first is understanding disaster risk in all its dimensions of vulnerability, capacity, and exposure. The second is strengthening disaster risk governance to manage disaster risk at national, regional, and global levels. The third is investing in disaster risk reduction for resilience through structural and non-structural measures. The fourth is enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation, and reconstruction. The framework was adopted at the Third UN World Conference in Sendai, Japan, replacing the earlier Hyogo Framework. It set a binding target of reducing global disaster mortality by 40 percent by 2025.",
+  "spans": [
+    {
+      "text": "The Sendai Framework for Disaster Risk Reduction 2015-2030 sets out four priorities for action.",
+      "support_score": 0.71,
+      "support": "strong",
+      "n_sources": 2,
+      "sources": [
+        {"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.71},
+        {"chunk_id": "sendai-framework-2015-2030::p10::0", "rank": 1, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 10, "score": 0.66}
+      ],
+      "parametric": true,
+      "dolma_matches": [{"snippet": "four priorities for action", "doc": "Wikipedia: Sendai Framework"}],
+      "provenance": "corpus"
+    },
+    {
+      "text": "The first is understanding disaster risk in all its dimensions of vulnerability, capacity, and exposure.",
+      "support_score": 0.88,
+      "support": "strong",
+      "n_sources": 1,
+      "sources": [
+        {"chunk_id": "sendai-framework-2015-2030::p10::0", "rank": 1, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 10, "score": 0.88}
+      ],
+      "parametric": true,
+      "dolma_matches": [{"snippet": "Understanding disaster risk", "doc": "UNDRR terminology (Dolma subset)"}],
+      "provenance": "corpus"
+    },
+    {
+      "text": "The second is strengthening disaster risk governance to manage disaster risk at national, regional, and global levels.",
+      "support_score": 0.85,
+      "support": "strong",
+      "n_sources": 1,
+      "sources": [
+        {"chunk_id": "sendai-framework-2015-2030::p11::0", "rank": 2, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 11, "score": 0.85}
+      ],
+      "parametric": true,
+      "dolma_matches": [],
+      "provenance": "corpus"
+    },
+    {
+      "text": "The third is investing in disaster risk reduction for resilience through structural and non-structural measures.",
+      "support_score": 0.82,
+      "support": "strong",
+      "n_sources": 1,
+      "sources": [
+        {"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.82}
+      ],
+      "parametric": false,
+      "dolma_matches": [],
+      "provenance": "corpus"
+    },
+    {
+      "text": "The fourth is enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation, and reconstruction.",
+      "support_score": 0.80,
+      "support": "strong",
+      "n_sources": 1,
+      "sources": [
+        {"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.80}
+      ],
+      "parametric": true,
+      "dolma_matches": [{"snippet": "Build Back Better", "doc": "Dolma web subset"}],
+      "provenance": "corpus"
+    },
+    {
+      "text": "The framework was adopted at the Third UN World Conference in Sendai, Japan, replacing the earlier Hyogo Framework.",
+      "support_score": 0.38,
+      "support": "none",
+      "n_sources": 0,
+      "sources": [],
+      "parametric": true,
+      "dolma_matches": [
+        {"snippet": "Third UN World Conference ... Sendai, Japan", "doc": "Wikipedia: Sendai Framework"},
+        {"snippet": "Hyogo Framework for Action", "doc": "Dolma web subset"}
+      ],
+      "provenance": "parametric"
+    },
+    {
+      "text": "It set a binding target of reducing global disaster mortality by 40 percent by 2025.",
+      "support_score": 0.22,
+      "support": "none",
+      "n_sources": 0,
+      "sources": [],
+      "parametric": false,
+      "dolma_matches": [],
+      "provenance": "unverified"
+    }
+  ],
+  "passages": [
+    {
+      "rank": 1,
+      "chunk_id": "sendai-framework-2015-2030::p10::0",
+      "slug": "sendai-framework-2015-2030",
+      "title": "Sendai Framework for Disaster Risk Reduction 2015-2030",
+      "page": 10,
+      "rerank_score": 0.97,
+      "rrf_score": 0.031,
+      "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030",
+      "text": "Priority 1: Understanding disaster risk. Disaster risk management should be based on an understanding of disaster risk in all its dimensions of vulnerability, capacity, exposure of persons and assets, hazard characteristics and the environment."
+    },
+    {
+      "rank": 2,
+      "chunk_id": "sendai-framework-2015-2030::p11::0",
+      "slug": "sendai-framework-2015-2030",
+      "title": "Sendai Framework for Disaster Risk Reduction 2015-2030",
+      "page": 11,
+      "rerank_score": 0.95,
+      "rrf_score": 0.028,
+      "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030",
+      "text": "Priority 2: Strengthening disaster risk governance to manage disaster risk. Disaster risk governance at the national, regional and global levels is vital to the management of disaster risk reduction in all sectors."
+    },
+    {
+      "rank": 3,
+      "chunk_id": "sendai-framework-2015-2030::p12::0",
+      "slug": "sendai-framework-2015-2030",
+      "title": "Sendai Framework for Disaster Risk Reduction 2015-2030",
+      "page": 12,
+      "rerank_score": 0.93,
+      "rrf_score": 0.025,
+      "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030",
+      "text": "Priority 3: Investing in disaster risk reduction for resilience. Public and private investment in disaster risk prevention and reduction through structural and non-structural measures are essential to enhance the resilience of persons, communities and countries. Priority 4: Enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation and reconstruction."
+    }
+  ]
+}

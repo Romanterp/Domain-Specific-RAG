@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theisus · Answer Provenance</title>
+<style>
+  :root { --green:#c8e6c9; --amber:#fff3cd; --grey:#eef0f2; --red-bg:#f8d7da; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         color:#1a1a1a; max-width:1080px; margin:0 auto; padding:28px 22px 60px; line-height:1.5; }
+  h1 { font-size:1.7rem; margin:0 0 .2rem; }
+  .sub { color:#666; margin:0 0 1.2rem; }
+  select { font-size:1rem; padding:5px 8px; border-radius:6px; border:1px solid #ccc; }
+  .question { font-size:1.5rem; font-weight:650; line-height:1.35; margin:1rem 0 .3rem; }
+  .mock { color:#777; font-size:.85rem; margin-bottom:1rem; }
+  .summary { background:#f7f8fa; border:1px solid #eceef1; border-radius:10px;
+             padding:14px 16px; margin:.6rem 0 1.2rem; }
+  .score { font-size:2rem; font-weight:700; }
+  .bar { height:9px; background:#e3e6ea; border-radius:5px; overflow:hidden; margin:.4rem 0; }
+  .bar > div { height:100%; background:#3b82f6; }
+  .legend { font-size:.85rem; color:#444; margin:.3rem 0 .8rem; line-height:1.9; }
+  .chip { padding:2px 9px; border-radius:11px; font-size:.8rem; margin-right:5px; }
+  .layout { display:flex; gap:26px; align-items:flex-start; }
+  .answer { flex:3; line-height:2.2; font-size:1.05rem; }
+  .panel { flex:2; position:sticky; top:14px; background:#fafbfc; border:1px solid #eceef1;
+           border-radius:10px; padding:14px 16px; min-height:120px; }
+  .span { padding:2px 3px; border-radius:4px; cursor:pointer; }
+  .span:hover { outline:2px solid #94a3b8; }
+  .span.sel { outline:2px solid #1f2937; }
+  .idx { font-size:.62rem; vertical-align:super; color:#666; margin-right:1px; }
+  .param { border-bottom:2px dotted #1565c0; }
+  .unver { background:var(--red-bg); border-bottom:2px dashed #c62828; }
+  .metrics { display:flex; gap:14px; margin:.6rem 0; }
+  .metric .k { font-size:.72rem; color:#666; text-transform:uppercase; letter-spacing:.03em; }
+  .metric .v { font-size:1.15rem; font-weight:650; }
+  .prov { font-weight:650; }
+  .src { border:1px solid #e6e8eb; border-radius:8px; padding:8px 10px; margin:.4rem 0; background:#fff; }
+  .src .h { font-size:.85rem; color:#333; font-weight:600; }
+  .src .t { font-size:.85rem; color:#444; margin-top:4px; }
+  .warn { background:#fff4f4; border:1px solid #f3c2c2; color:#9b1c1c; border-radius:8px;
+          padding:8px 12px; font-size:.9rem; margin-top:.5rem; }
+  a { color:#1565c0; }
+  .claimtext { font-style:italic; color:#333; border-left:3px solid #ccc; padding-left:.6rem; margin:.2rem 0 .6rem; }
+</style>
+</head>
+<body>
+  <h1>Answer Provenance Viewer</h1>
+  <p class="sub">How well does the UNDRR corpus support each claim — and where does it come from? (RAG vs the model's general knowledge)</p>
+  <div id="picker"></div>
+  <div id="view"></div>
+
+<script>
+const SUPPORT_COLORS = {strong:"#c8e6c9", partial:"#fff3cd", none:"#eef0f2"};
+const PROV_COLORS = {corpus:"#2e7d32", parametric:"#1565c0", unverified:"#c62828", uncorroborated:"#777"};
+const PROV_HELP = {
+  corpus:"Backed by your UNDRR corpus (RAG).",
+  parametric:"Not in your corpus, but in the model's training data — general knowledge.",
+  unverified:"Not in the corpus and not in training data — a hallucination candidate.",
+  uncorroborated:"Not found in the corpus; OLMoTrace not yet run."
+};
+const EXAMPLES = {"sendai-framework-priorities": {"id": "sendai-framework-priorities", "question": "What are the four priorities for action in the Sendai Framework?", "pipeline": "hybrid+rerank", "model": "allenai/Olmo-3.1-32B-Instruct", "generated_at": "2026-06-05", "is_mock": true, "note": "Illustrative example so the UI renders before the real builder runs — scores are hand-authored, not measured.", "support_score": 0.67, "answer_plain": "The Sendai Framework for Disaster Risk Reduction 2015-2030 sets out four priorities for action. The first is understanding disaster risk in all its dimensions of vulnerability, capacity, and exposure. The second is strengthening disaster risk governance to manage disaster risk at national, regional, and global levels. The third is investing in disaster risk reduction for resilience through structural and non-structural measures. The fourth is enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation, and reconstruction. The framework was adopted at the Third UN World Conference in Sendai, Japan, replacing the earlier Hyogo Framework. It set a binding target of reducing global disaster mortality by 40 percent by 2025.", "spans": [{"text": "The Sendai Framework for Disaster Risk Reduction 2015-2030 sets out four priorities for action.", "support_score": 0.71, "support": "strong", "n_sources": 2, "sources": [{"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.71}, {"chunk_id": "sendai-framework-2015-2030::p10::0", "rank": 1, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 10, "score": 0.66}], "parametric": true, "dolma_matches": [{"snippet": "four priorities for action", "doc": "Wikipedia: Sendai Framework"}], "provenance": "corpus"}, {"text": "The first is understanding disaster risk in all its dimensions of vulnerability, capacity, and exposure.", "support_score": 0.88, "support": "strong", "n_sources": 1, "sources": [{"chunk_id": "sendai-framework-2015-2030::p10::0", "rank": 1, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 10, "score": 0.88}], "parametric": true, "dolma_matches": [{"snippet": "Understanding disaster risk", "doc": "UNDRR terminology (Dolma subset)"}], "provenance": "corpus"}, {"text": "The second is strengthening disaster risk governance to manage disaster risk at national, regional, and global levels.", "support_score": 0.85, "support": "strong", "n_sources": 1, "sources": [{"chunk_id": "sendai-framework-2015-2030::p11::0", "rank": 2, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 11, "score": 0.85}], "parametric": true, "dolma_matches": [], "provenance": "corpus"}, {"text": "The third is investing in disaster risk reduction for resilience through structural and non-structural measures.", "support_score": 0.82, "support": "strong", "n_sources": 1, "sources": [{"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.82}], "parametric": false, "dolma_matches": [], "provenance": "corpus"}, {"text": "The fourth is enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation, and reconstruction.", "support_score": 0.8, "support": "strong", "n_sources": 1, "sources": [{"chunk_id": "sendai-framework-2015-2030::p12::0", "rank": 3, "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "score": 0.8}], "parametric": true, "dolma_matches": [{"snippet": "Build Back Better", "doc": "Dolma web subset"}], "provenance": "corpus"}, {"text": "The framework was adopted at the Third UN World Conference in Sendai, Japan, replacing the earlier Hyogo Framework.", "support_score": 0.38, "support": "none", "n_sources": 0, "sources": [], "parametric": true, "dolma_matches": [{"snippet": "Third UN World Conference ... Sendai, Japan", "doc": "Wikipedia: Sendai Framework"}, {"snippet": "Hyogo Framework for Action", "doc": "Dolma web subset"}], "provenance": "parametric"}, {"text": "It set a binding target of reducing global disaster mortality by 40 percent by 2025.", "support_score": 0.22, "support": "none", "n_sources": 0, "sources": [], "parametric": false, "dolma_matches": [], "provenance": "unverified"}], "passages": [{"rank": 1, "chunk_id": "sendai-framework-2015-2030::p10::0", "slug": "sendai-framework-2015-2030", "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 10, "rerank_score": 0.97, "rrf_score": 0.031, "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030", "text": "Priority 1: Understanding disaster risk. Disaster risk management should be based on an understanding of disaster risk in all its dimensions of vulnerability, capacity, exposure of persons and assets, hazard characteristics and the environment."}, {"rank": 2, "chunk_id": "sendai-framework-2015-2030::p11::0", "slug": "sendai-framework-2015-2030", "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 11, "rerank_score": 0.95, "rrf_score": 0.028, "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030", "text": "Priority 2: Strengthening disaster risk governance to manage disaster risk. Disaster risk governance at the national, regional and global levels is vital to the management of disaster risk reduction in all sectors."}, {"rank": 3, "chunk_id": "sendai-framework-2015-2030::p12::0", "slug": "sendai-framework-2015-2030", "title": "Sendai Framework for Disaster Risk Reduction 2015-2030", "page": 12, "rerank_score": 0.93, "rrf_score": 0.025, "source_url": "https://www.undrr.org/publication/sendai-framework-disaster-risk-reduction-2015-2030", "text": "Priority 3: Investing in disaster risk reduction for resilience. Public and private investment in disaster risk prevention and reduction through structural and non-structural measures are essential to enhance the resilience of persons, communities and countries. Priority 4: Enhancing disaster preparedness for effective response and to 'Build Back Better' in recovery, rehabilitation and reconstruction."}]}};
+let curKey = Object.keys(EXAMPLES)[0];
+let curClaim = 0;
+
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function spanSupport(sp){ return sp.support || "none"; }
+function spanProv(sp){ return sp.provenance || "uncorroborated"; }
+
+function renderPicker(){
+  const keys = Object.keys(EXAMPLES);
+  if (keys.length < 2){ document.getElementById("picker").innerHTML=""; return; }
+  let h = '<select onchange="curKey=this.value;curClaim=0;render()">';
+  for (const k of keys) h += `<option value="${k}" ${k===curKey?'selected':''}>${esc(EXAMPLES[k].question)}</option>`;
+  h += '</select>';
+  document.getElementById("picker").innerHTML = h;
+}
+
+function answerHTML(spans){
+  return spans.map((sp,i)=>{
+    const sup = spanSupport(sp), prov = spanProv(sp);
+    let style = `background:${SUPPORT_COLORS[sup]||'#eef0f2'};`;
+    let cls = "span";
+    if (sup==="none" && prov==="parametric") cls += " param";
+    if (prov==="unverified"){ cls += " unver"; style=""; }
+    if (i===curClaim) cls += " sel";
+    return `<span class="idx">${i+1}</span><span class="${cls}" style="${style}" onclick="curClaim=${i};render()">${esc(sp.text)}</span>`;
+  }).join(" ");
+}
+
+function legendHTML(hasOT){
+  let sup = Object.keys(SUPPORT_COLORS).map(s=>`<span class="chip" style="background:${SUPPORT_COLORS[s]}">${s}</span>`).join(" ");
+  let l1 = `<b>Highlight</b> = corpus support: &nbsp;${sup}`;
+  let l2 = hasOT
+    ? `<b>Underline</b> = provenance: &nbsp;<span class="param">general knowledge</span> &nbsp;&nbsp; <span class="unver" style="padding:0 3px;border-radius:3px;">unverified</span>`
+    : `<b>Underline</b> = provenance — appears once OLMoTrace is wired (Phase 2)`;
+  return `<div class="legend">${l1}<br>${l2}</div>`;
+}
+
+function panelHTML(ex){
+  const sp = ex.spans[curClaim]; if(!sp) return "";
+  const sup = spanSupport(sp), prov = spanProv(sp);
+  let h = `<div class="claimtext" style="border-left-color:${SUPPORT_COLORS[sup]||'#ccc'}">${esc(sp.text)}</div>`;
+  h += `<div class="metrics">
+    <div class="metric"><div class="k">Support</div><div class="v">${sup}</div></div>
+    <div class="metric"><div class="k">Confidence</div><div class="v">${(sp.support_score||0).toFixed(2)}</div></div>
+    <div class="metric"><div class="k">Sources</div><div class="v">${sp.n_sources||0}</div></div>
+  </div>`;
+  h += `<div>Provenance: <span class="prov" style="color:${PROV_COLORS[prov]}">${prov}</span></div>`;
+  h += `<div style="font-size:.85rem;color:#666;margin:.2rem 0 .6rem">${PROV_HELP[prov]||""}</div>`;
+  const byId = {}; (ex.passages||[]).forEach(p=>byId[p.chunk_id]=p);
+  if ((sp.sources||[]).length){
+    for (const s of sp.sources){
+      const full = byId[s.chunk_id]||{};
+      const url = full.source_url ? ` · <a href="${full.source_url}" target="_blank">source</a>` : "";
+      h += `<div class="src"><div class="h">score ${(s.score||0).toFixed(2)} · ${esc(s.title)} p.${s.page}${url}</div>
+            <div class="t">${esc(full.text||"")}</div></div>`;
+    }
+  } else {
+    h += `<div class="warn">No corpus passage supports this claim above threshold.</div>`;
+    if ((sp.dolma_matches||[]).length){
+      h += `<div style="font-size:.85rem;margin-top:.5rem"><b>In training data (OLMoTrace):</b><ul>`;
+      for (const m of sp.dolma_matches) h += `<li>“${esc(m.snippet)}” — <i>${esc(m.doc)}</i></li>`;
+      h += `</ul></div>`;
+    }
+  }
+  return h;
+}
+
+function render(){
+  renderPicker();
+  const ex = EXAMPLES[curKey];
+  const spans = ex.spans||[];
+  const hasOT = spans.some(s=>s.parametric!==null && s.parametric!==undefined);
+  const n = spans.length||1;
+  const nCorpus = spans.filter(s=>spanSupport(s)!=="none").length;
+  const nParam = spans.filter(s=>spanProv(s)==="parametric").length;
+  const nUnver = spans.filter(s=>spanProv(s)==="unverified").length;
+  const score = ex.support_score||0;
+  let h = `<div class="question">${esc(ex.question)}</div>`;
+  if (ex.is_mock) h += `<div class="mock">🧪 mock example — illustrative scores, not measured.</div>`;
+  h += `<div class="summary">
+      <div class="score">${Math.round(score*100)}%<span style="font-size:.9rem;font-weight:400;color:#666"> corpus support</span></div>
+      <div class="bar"><div style="width:${Math.round(score*100)}%"></div></div>
+      <div style="font-size:.92rem"><b>${nCorpus}/${n}</b> claims backed by the corpus · <b>${nParam}</b> general knowledge · <b>${nUnver}</b> unverified</div>
+      ${nUnver?`<div class="warn">${nUnver} claim(s) supported by neither the corpus nor training data — hallucination candidates.</div>`:""}
+      <div style="font-size:.8rem;color:#888;margin-top:.5rem">pipeline: ${esc(ex.pipeline||"")} · generator: ${esc(ex.model||"")}</div>
+    </div>`;
+  h += legendHTML(hasOT);
+  h += `<div class="layout"><div class="answer">${answerHTML(spans)}</div><div class="panel">${panelHTML(ex)}</div></div>`;
+  document.getElementById("view").innerHTML = h;
+}
+render();
+</script>
+</body>
+</html>

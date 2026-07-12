@@ -27,9 +27,16 @@ data/chunks.jsonl
 # doc2query full-corpus shard intermediates (superseded by the merged
 # doc2query_eval_full.jsonl) + transient/regenerable eval outputs
 data/doc2query_eval_shard*.jsonl
-data/reliance_records*.jsonl
+data/reliance_records.shard*.jsonl
 data/reliance_smoke*.jsonl
 data/d2q_full_hyb_*.jsonl
+# 52 MB, regenerable (filter_expansions.py + pinned reranker) — archive, don't track
+data/doc2query_expansion_scores.jsonl
+# OLMoTrace/infini-gram response caches: small, and the ONLY reproducibility
+# record of an unofficial endpoint — track them (review response 2026-07-12).
+# The merged data/reliance_records.jsonl (32B production run) is tracked via
+# the !data/*.jsonl whitelist above; only shard intermediates stay ignored.
+!data/attribution/
 
 # NEVER track: browser profiles (cookies/credentials), local stores, corpora
 # (covered by data/* above; listed explicitly as a guard if data/* is edited)
