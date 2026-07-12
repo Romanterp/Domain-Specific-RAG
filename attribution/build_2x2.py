@@ -206,6 +206,15 @@ def main() -> int:
                 "pretraining_hit": pretraining,               # True | False | None(untraced)
                 "n_pretraining_spans": len(hits),
                 "olmotrace_corpora": corpora,
+                # the actual matched substrings — the viewer's "which training
+                # text does this coincide with" evidence (raw capped for size)
+                "pretraining_matches": [
+                    {"raw": h["raw"][:300],
+                     "corpora": sorted({d.get("corpus") or d.get("source")
+                                        for d in h["docs"]
+                                        if (d.get("corpus") or d.get("source"))}),
+                     "n_docs": len(h["docs"])}
+                    for h in hits],
                 "label_2x2": lab,                             # rag | both | parametric | unverified | *?*
                 "provenance": prov,                           # viewer enum (pipeline.py)
                 "gold_loo_drop": rec.get("gold_loo_drop"),    # record-level causal "which passage"
