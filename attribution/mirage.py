@@ -67,6 +67,9 @@ class MirageResult:
     token_cti: list                       # [(token_str, kl_float)]
     spans: list                           # [SpanAttribution]
     passage_tags: dict                    # tag -> {chunk_id, title}
+    prompt_format: str = "chat"           # "chat" | "plain" — "plain" marks the
+                                          # fallback path; CTI is only comparable
+                                          # within one format
 
 
 def reliance_bucket(cti_mean: float) -> str:
@@ -79,20 +82,46 @@ def reliance_bucket(cti_mean: float) -> str:
 
 class MirageAttributor:
     def __init__(self, model: str = "allenai/Olmo-3-7B-Instruct",
-                 device: str | None = None, dtype: str = "bf16"):
+                 device: str | None = None, dtype: str = "bf16",
+                 device_map: str | None = None):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model_name = model
         dt = {"auto": "auto", "fp16": torch.float16, "bf16": torch.bfloat16}[dtype]
-        log.info(f"[mirage] loading {model} ({dtype}) on {self.device}")
         self.tok = AutoTokenizer.from_pretrained(model, trust_remote_code=True)
         if self.tok.pad_token_id is None:
             self.tok.pad_token = self.tok.eos_token
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model, dtype=dt, device_map=self.device, trust_remote_code=True,
-        )
+        n_gpu = torch.cuda.device_count()
+        # Auto-shard whenever asked OR when >1 GPU is visible and no single device
+        # was pinned (the 32B on 2x A100 40GB — the config doc2query proved).
+        # Reserve ~6 GiB/GPU so accelerate doesn't fill GPU0 to the brim and OOM
+        # (inputs + forward activations live on the embedding shard).
+        _shard = (device_map == "auto") or (device is None and n_gpu > 1)
+        _maxmem = None
+        if _shard and n_gpu > 0:
+            try:
+                _gib = [torch.cuda.get_device_properties(i).total_memory // (1024 ** 3)
+                        for i in range(n_gpu)]
+                _maxmem = {i: f"{max(1, g - 6)}GiB" for i, g in enumerate(_gib)}
+            except Exception:
+                _maxmem = None
+        if _shard:
+            log.info(f"[mirage] loading {model} ({dtype}) sharded across {n_gpu} GPU(s), "
+                     f"max_memory={_maxmem}")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model, dtype=dt, device_map="auto", max_memory=_maxmem,
+                trust_remote_code=True,
+            )
+            self.device = self.model.get_input_embeddings().weight.device
+            log.info(f"[mirage] embedding shard={self.device}  "
+                     f"map={getattr(self.model, 'hf_device_map', '?')}")
+        else:
+            self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+            log.info(f"[mirage] loading {model} ({dtype}) on {self.device}")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model, dtype=dt, device_map=self.device, trust_remote_code=True,
+            )
         self.model.eval()
         # CCI needs gradients only w.r.t. the INPUT embeddings, never the weights.
         # Freezing params means backward() doesn't allocate per-parameter grads
@@ -101,15 +130,18 @@ class MirageAttributor:
             p.requires_grad_(False)
 
     # ---- prompt construction with tracked passage token spans ----
-    def _build_prompt_ids(self, question: str, passages: list[dict], with_context: bool):
-        """Return (ids[1,T], spans[(tag,start,end)]).
+    def _build_prompt_ids(self, question: str, passages: list[dict], with_context: bool,
+                          force_plain: bool = False):
+        """Return (ids[1,T], spans[(tag,start,end)], fmt "chat"|"plain").
 
         Uses the model's CHAT TEMPLATE so an Instruct model answers in-
         distribution (a plain prompt makes OLMo-Instruct degenerate). Passage
         token spans for CCI are recovered by locating each passage's verbatim
         text in the rendered string via offset mapping. Falls back to a plain
         tracked prompt only if the chat template / fast-tokenizer offsets are
-        unavailable.
+        unavailable. force_plain skips the chat template outright — attribute()
+        uses it to keep the with/without-context prompt pair in ONE format, so
+        CTI never measures the template difference.
         """
         import torch
 
@@ -132,31 +164,32 @@ class MirageAttributor:
 
         sys_msg = ("You are a helpful assistant answering questions about UN disaster "
                    "risk reduction. Answer concisely using only the provided context.")
-        try:
-            rendered = self.tok.apply_chat_template(
-                [{"role": "system", "content": sys_msg},
-                 {"role": "user", "content": user}],
-                tokenize=False, add_generation_prompt=True,
-            )
-            enc = self.tok(rendered, add_special_tokens=False, return_offsets_mapping=True)
-            ids, offs = enc["input_ids"], enc["offset_mapping"]
-            spans: list[tuple[str, int, int]] = []
-            for i, p in enumerate(passages, 1):
-                ptext = p.get("text", "").strip()
-                ci = rendered.find(ptext)
-                if ci < 0 or not ptext:
-                    continue
-                cj = ci + len(ptext)
-                t0 = next((k for k, (a, b) in enumerate(offs) if b > ci), None)
-                t1 = next((k for k, (a, b) in enumerate(offs) if a >= cj), len(ids))
-                if t0 is not None:
-                    spans.append((f"P{i}", t0, t1))
-            if with_context and passages and not spans:
-                raise RuntimeError("no passage spans located in rendered prompt")
-            return torch.tensor([ids]), spans
-        except Exception as e:  # noqa: BLE001 — fall back to plain tracked prompt
-            log.warning(f"[mirage] chat-template span tracking unavailable ({e}); "
-                        "using plain prompt (answer may be lower quality)")
+        if not force_plain:
+            try:
+                rendered = self.tok.apply_chat_template(
+                    [{"role": "system", "content": sys_msg},
+                     {"role": "user", "content": user}],
+                    tokenize=False, add_generation_prompt=True,
+                )
+                enc = self.tok(rendered, add_special_tokens=False, return_offsets_mapping=True)
+                ids, offs = enc["input_ids"], enc["offset_mapping"]
+                spans: list[tuple[str, int, int]] = []
+                for i, p in enumerate(passages, 1):
+                    ptext = p.get("text", "").strip()
+                    ci = rendered.find(ptext)
+                    if ci < 0 or not ptext:
+                        continue
+                    cj = ci + len(ptext)
+                    t0 = next((k for k, (a, b) in enumerate(offs) if b > ci), None)
+                    t1 = next((k for k, (a, b) in enumerate(offs) if a >= cj), len(ids))
+                    if t0 is not None:
+                        spans.append((f"P{i}", t0, t1))
+                if with_context and passages and not spans:
+                    raise RuntimeError("no passage spans located in rendered prompt")
+                return torch.tensor([ids]), spans, "chat"
+            except Exception as e:  # noqa: BLE001 — fall back to plain tracked prompt
+                log.warning(f"[mirage] chat-template span tracking unavailable ({e}); "
+                            "using plain prompt (answer may be lower quality)")
 
         ids2: list[int] = []
         spans2: list[tuple[str, int, int]] = []
@@ -174,7 +207,7 @@ class MirageAttributor:
                 add(f"[P{i}] {p.get('text','').strip()}\n")
                 spans2.append((f"P{i}", start, len(ids2)))
         add(f"\nQuestion: {question}\nAnswer:")
-        return torch.tensor([ids2]), spans2
+        return torch.tensor([ids2]), spans2, "plain"
 
     def _generate(self, ids, max_new_tokens: int,
                   repetition_penalty: float = 1.15, no_repeat_ngram_size: int = 0):
@@ -222,7 +255,7 @@ class MirageAttributor:
         matches. NB re-tokenises answer_text (R7 re-encoding caveat); fine for the
         relative LOO drop.
         """
-        ids, _ = self._build_prompt_ids(question, passages, with_context=True)
+        ids, _, _ = self._build_prompt_ids(question, passages, with_context=True)
         tgt = self.tok(answer_text, add_special_tokens=False, return_tensors="pt").input_ids
         if tgt.shape[1] == 0:
             return 0.0
@@ -273,7 +306,7 @@ class MirageAttributor:
         for the gold-only mode that keeps the 32B production run tractable
         (2 forwards instead of n+1).
         """
-        ids, spans = self._build_prompt_ids(question, passages, with_context=True)
+        ids, spans, _ = self._build_prompt_ids(question, passages, with_context=True)
         tgt = self.tok(answer_text, add_special_tokens=False, return_tensors="pt").input_ids
         if tgt.shape[1] == 0:
             return 0.0, [None] * len(passages)
@@ -336,8 +369,15 @@ class MirageAttributor:
         """Full intrinsic attribution for one (question, passages)."""
         import torch
 
-        ids_ctx, spans = self._build_prompt_ids(question, passages, with_context=True)
-        ids_noctx, _ = self._build_prompt_ids(question, passages, with_context=False)
+        ids_ctx, spans, fmt = self._build_prompt_ids(question, passages, with_context=True)
+        # Both prompts MUST share one format: if the with-context build fell back
+        # to plain, a chat-templated no-context prompt would make CTI measure the
+        # template difference, not the passages.
+        ids_noctx, _, fmt_noctx = self._build_prompt_ids(
+            question, passages, with_context=False, force_plain=(fmt == "plain"))
+        if fmt_noctx != fmt:  # template failed only on the no-context side — rare
+            ids_ctx, spans, fmt = self._build_prompt_ids(
+                question, passages, with_context=True, force_plain=True)
 
         answer_ids = self._generate(ids_ctx, max_new_tokens)
         # P1: drop a trailing EOS so it doesn't leak into CTI / sentence mapping.
@@ -351,7 +391,7 @@ class MirageAttributor:
                         for i, p in enumerate(passages, 1)}
         if answer_ids.shape[1] == 0:  # degenerate empty generation — caller flags it
             return MirageResult(question=question, answer="", token_cti=[],
-                                spans=[], passage_tags=passage_tags)
+                                spans=[], passage_tags=passage_tags, prompt_format=fmt)
 
         # CTI: KL(with || without) per answer token.
         lp_with = self._answer_logprobs(ids_ctx, answer_ids)
@@ -410,4 +450,4 @@ class MirageAttributor:
             ))
 
         return MirageResult(question=question, answer=answer, token_cti=token_cti,
-                            spans=span_attrs, passage_tags=passage_tags)
+                            spans=span_attrs, passage_tags=passage_tags, prompt_format=fmt)

@@ -80,10 +80,20 @@ def main() -> int:
     ap.add_argument("--limit", type=int, help="first N questions (smoke test)")
     ap.add_argument("--model", default="allenai/Olmo-3-7B-Instruct")
     ap.add_argument("--dtype", choices=["auto", "fp16", "bf16"], default="bf16")
+    ap.add_argument("--device-map", default=None,
+                    help="'auto' shards a large model (32B) across all visible GPUs "
+                         "(needed on 2x A100 40GB, per the doc2query config); omit "
+                         "for single-GPU / local 7B")
     ap.add_argument("--collection", default="theisus_none")
     ap.add_argument("--bm25-path", default=str(DATA_DIR / "bm25_index.pkl"))
     ap.add_argument("--qdrant-path", default=str(DATA_DIR / "qdrant"))
-    ap.add_argument("--candidate-pool", type=int, default=50)
+    ap.add_argument("--candidate-pool", type=int, default=100,
+                    help="per-retriever pool before fusion/rerank. 100 matches the "
+                         "eval_synthetic runs the contrast classes were frozen from; "
+                         "the 26-June production run used the old default 50, which "
+                         "cost 29/276 rescued questions their gold at runtime "
+                         "(gold_in_context records the drift). Use 50 ONLY to extend "
+                         "that run consistently (e.g. adding the gain class to it).")
     ap.add_argument("--top-k", type=int, default=10,
                     help="passages of context per condition. MUST match the contrast "
                          "set's classification k (select_contrast_set --top-k, default 10) "
@@ -145,7 +155,8 @@ def main() -> int:
     # ---- Stage 2: generate + CTI + LOO per (question, condition) ----
     from attribution.mirage import MirageAttributor
     print("Stage 2/2 — generate + CTI + LOO")
-    attr = MirageAttributor(model=args.model, dtype=args.dtype)
+    attr = MirageAttributor(model=args.model, dtype=args.dtype,
+                            device_map=args.device_map)
 
     n_written = 0
     t0 = time.time()
@@ -212,6 +223,9 @@ def main() -> int:
                     "loo_drops": loo,
                     "passage_chunk_ids": [p.get("chunk_id") for p in ps],
                     "model": args.model,
+                    # "plain" marks the chat-template fallback; CTI from a plain
+                    # prompt is not comparable with chat-format records.
+                    "prompt_format": res.prompt_format,
                 }
                 fout.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 fout.flush()

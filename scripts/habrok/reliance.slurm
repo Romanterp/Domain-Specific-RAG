@@ -2,9 +2,9 @@
 #SBATCH --job-name=theisus-reliance
 #SBATCH --array=0-7
 #SBATCH --partition=gpushort
-#SBATCH --gres=gpu:a100.80gb:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --gres=gpu:a100:2
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=96G
 #SBATCH --time=04:00:00
 #SBATCH --output=scripts/habrok/logs/reliance-%A_%a.out
 #SBATCH --error=scripts/habrok/logs/reliance-%A_%a.err
@@ -12,8 +12,9 @@
 # RQ3 reliance spine on Olmo-3.1-32B, as a SLURM ARRAY. Each task processes one
 # shard of the contrast-set questions (q_idx % NUM_SHARDS == shard) through both
 # retrieval conditions (dense, hybrid+rerank): generate → per-claim CTI → gold
-# LOO. FORWARD-ONLY (no gradients), so the 32B (~64 GB bf16) fits a single
-# 80 GB A100 with room for forward activations — no model sharding needed.
+# LOO. FORWARD-ONLY (no gradients). The 32B (~64 GB bf16) does NOT fit one 40 GB
+# A100, so it shards across 2x A100 via --device-map auto (the config the
+# doc2query run proved). Each array task therefore requests 2 GPUs.
 #
 #   sbatch scripts/habrok/reliance.slurm
 #   # after all tasks COMPLETED, concatenate the shard outputs:
@@ -49,11 +50,15 @@ NUM_SHARDS="${NUM_SHARDS:-8}"   # MUST match the --array size above
 CLASSES="${CLASSES:-rescued control}"
 LOO_MODE="${LOO_MODE:-gold}"
 TOPK="${TOPK:-10}"              # match the contrast set's classification k
+POOL="${POOL:-100}"             # match eval_synthetic / the contrast-set freeze.
+                                # The 26-June production run used 50 (29/276 rescued
+                                # lost gold at runtime) — POOL=50 only to EXTEND that
+                                # run consistently; 100 for any fresh/re-frozen run.
 
-echo "[$(date)] shard $SLURM_ARRAY_TASK_ID / $NUM_SHARDS  model=$MODEL  classes=$CLASSES  loo=$LOO_MODE"
+echo "[$(date)] shard $SLURM_ARRAY_TASK_ID / $NUM_SHARDS  model=$MODEL  classes=$CLASSES  loo=$LOO_MODE  pool=$POOL"
 python -m attribution.reliance_experiment \
-    --model "$MODEL" --dtype bf16 \
-    --classes $CLASSES --top-k "$TOPK" --loo-mode "$LOO_MODE" \
+    --model "$MODEL" --dtype bf16 --device-map auto --max-new-tokens 512 \
+    --classes $CLASSES --top-k "$TOPK" --candidate-pool "$POOL" --loo-mode "$LOO_MODE" \
     --shard "$SLURM_ARRAY_TASK_ID" --num-shards "$NUM_SHARDS" \
     --out "data/reliance_records.shard${SLURM_ARRAY_TASK_ID}.jsonl" --resume
 

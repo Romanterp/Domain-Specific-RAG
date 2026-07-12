@@ -24,6 +24,8 @@ rank-bm25>=0.2.2
 
 # --- shared ---
 numpy
+scipy>=1.11                  # exact-binomial McNemar + Spearman; WITHOUT it the
+                             # stats scripts silently fall back to chi-square
 tqdm>=4.66.0
 
 # NOTE (BGE-M3 gotcha): on torch 2.5 / transformers 5.x, loading BGE-M3 needs

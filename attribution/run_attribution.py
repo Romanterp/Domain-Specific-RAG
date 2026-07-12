@@ -182,6 +182,7 @@ def main() -> int:
             "question": r.question, "model": args.model, "answer": r.answer,
             "olmotrace_ok": ok, "olmotrace_model_id": args.olmotrace_model_id,
             "passage_tags": r.passage_tags, "spans": record_spans,
+            "prompt_format": r.prompt_format,
         }
         fid = "".join(c if c.isalnum() else "-" for c in r.question.lower())[:50]
         (out_dir / f"attrib-{fid}.json").write_text(
