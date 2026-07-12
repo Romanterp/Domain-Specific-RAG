@@ -139,10 +139,13 @@ def main() -> int:
     out.append("## Caveats\n")
     out.append("- Prototype: 7B generator, single seed, small held-out set — directional, "
                "not final. The production run (32B on Habrok) tightens these.")
-    out.append("- Held-out queries share some vocabulary with their indexed sibling "
-               "questions (same passage); this residual leakage is identical in both "
-               "columns, so the **Δ** is the clean signal. Cross-check on the 33 "
-               "hand-written naturalistic queries before claiming the lift.")
+    out.append("- Held-out queries share vocabulary with their indexed sibling "
+               "questions (same passage, same generation batch). This leakage is "
+               "ASYMMETRIC: only the augmented index contains sibling questions, so "
+               "it can only inflate the doc2query column — the **Δ** is an upper "
+               "bound, not a clean signal. Robustness check: re-run on the "
+               "paraphrased query set (retrieval/paraphrase_eval.py), which breaks "
+               "verbatim sibling overlap while keeping entities/numbers.")
     out.append("- Hybrid view (dense ⊕ doc2query-BM25 → rerank): run "
                "`eval_synthetic --questions data/doc2query_eval.jsonl --hybrid [--rerank] "
                "--conditions none` once with `--bm25-path data/bm25_index.pkl` and once "
