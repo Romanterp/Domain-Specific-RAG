@@ -8,9 +8,9 @@ McNemar tests on Hit@1 between pipelines (paired on the same queries). This is
 the rigor layer for the production numbers: point estimates become intervals,
 and "is hybrid+rerank significantly better than dense+rerank?" gets a p-value.
 
-2026-07-12 (review response): CIs are now GOLD-CHUNK CLUSTER bootstraps — the
+2026-07-12: CIs are now GOLD-CHUNK CLUSTER bootstraps — the
 2,481 production questions come ~5 per gold chunk and siblings hit/miss
-together (measured ICC ≈ 0.2), so query-level resampling understated CI width
+together, so query-level resampling understated CI width
 ~1.4×. With 1 query per chunk this reduces to the plain bootstrap. Also added:
 paired metric-DELTA CIs (per-pipeline CI overlap is not a test of the delta)
 and Holm correction across the McNemar family.
