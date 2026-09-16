@@ -1,23 +1,16 @@
-"""Thesis figure pipeline — the ch4 "Gaps" item in 04-results/00-SOURCES.md.
+"""Thesis figure pipeline
 
-Generates the three thesis-grade figures into figures/ (PDF vector + 300dpi PNG):
+Generates the three thesis figures:
 
   fig_decomposition   RQ1: Hit@1 / Hit@10 / Not-retrieved bars with 95%
                       cluster-bootstrap CIs across the four pipelines.
-                      Values are the FROZEN numbers from data/prod_ci_1024.md
-                      (Round 6f) — this figure presents the frozen table, it
-                      does not recompute it.
+                      
   fig_reliance        RQ3: (a) paired CTI by class x condition, recomputed
                       from data/reliance_records.jsonl with a seeded paired
                       question bootstrap and cross-checked against the frozen
-                      means in data/reliance_analysis.md; (b) forest plot of
-                      the three frozen interaction estimates.
+                      means 
   fig_2x2             Cross-lens 2x2: reliance x pretraining-trace counts
-                      computed from data/attribution_2x2.jsonl.
-
-Colors follow a CVD-validated palette (ordinal blue ramp for the pipeline
-progression; blue/orange categorical pair for conditions; sequential blue for
-the heatmap).
+                      
 
 Run:  .venv311/Scripts/python.exe scripts/make_figures.py
 """
