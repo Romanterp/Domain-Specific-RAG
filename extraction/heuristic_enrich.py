@@ -12,7 +12,7 @@ Extracts from text content using keyword/regex matching:
 Also extracts:
   - Retrieval keywords (KeyBERT distinctive bigrams/trigrams; corpus-fitted vocabulary)
 
-Does NOT attempt (reserved for LLM):
+Does not (reserved for possible LLM):
   - Hazard type classification (mentions ≠ "about")
   - Theme classification (needs semantic understanding)
   - Sendai priorities (needs interpretation)
