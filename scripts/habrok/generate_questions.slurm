@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=theisus-genq
-#SBATCH --account=TODO_FILL_RUG_ACCOUNT      # <-- TODO: your compute account (see `sacctmgr show assoc user=$USER`)
-#SBATCH --partition=gpu                       # <-- TODO: verify with `sinfo -s` (e.g. gpu, gpushort, gp. )
-#SBATCH --gres=gpu:a100.80gb:1                # <-- TODO: verify GPU name with `sinfo -o "%G"`
+#SBATCH --account=     
+#SBATCH --partition=gpu                       
+#SBATCH --gres=gpu:a100.80gb:1                
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=04:00:00
