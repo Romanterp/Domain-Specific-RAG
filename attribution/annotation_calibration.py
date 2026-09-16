@@ -1,18 +1,6 @@
-"""Calibrate CTI against the annotation-campaign labels (thesis SS4.6).
+"""Calibrate CTI against the annotation labels.
 
-Fills the three PENDING rows in status-of-numbers.md that were blocked on the
-annotation campaign:
-  1. CTI threshold calibration + bucket precision (AUC, per-bucket label mix,
-     threshold sweep for CTI_STRONG/CTI_WEAK currently 0.30/0.05)
-  2. Hallucination-cell precision (parametric x no-pretraining-trace spans:
-     how often is "no visible source" actually not supported by the passages?)
-  3. Answer-correctness by retrieval condition (first better-retrieval ->
-     better-answers evidence; stratified-sample caveat applies)
-
-Label source: data/annotation_labels.jsonl, latest label per (kind, key) wins
-across annotators — llm-consensus today, human adjudication rows take
-precedence automatically once appended by the workbench. The report states
-which annotators actually contributed, so it stays honest about provenance.
+Label source: data/annotation_labels.jsonl
 
 Run:  .venv311/Scripts/python.exe -m attribution.annotation_calibration
 """
@@ -117,11 +105,10 @@ def main() -> int:
     who_ans = Counter(v["annotator"] for v in ans_lab.values())
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    rep = ["# CTI calibration against annotation labels (SS4.6)\n"]
+    rep = ["# CTI calibration against annotation labels \n"]
     rep.append(f"Generated {now} by `python -m attribution.annotation_calibration`. "
                f"Labels: latest per key from `annotation_labels.jsonl` — span rows by "
-               f"{dict(who_spans)}, answer rows by {dict(who_ans)}. "
-               "Re-run after human adjudication; provenance above updates itself.\n")
+               f"{dict(who_spans)}, answer rows by {dict(who_ans)}. ")
     if n_unlabeled:
         rep.append(f"**{n_unlabeled} sample spans have no label yet.**\n")
 
