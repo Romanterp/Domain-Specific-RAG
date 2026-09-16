@@ -2,23 +2,11 @@
 End-to-end attribution on ONE (or a few) question(s) — the RQ3 2×2 in miniature.
 
 For each question it runs both attribution lenses on the SAME OLMo answer and
-crosses them:
-
-                       in training data? (OLMoTrace, extrinsic)
-                         yes                    no
-  context-     high   corpus-grounded use   context-driven, novel
-  driven?      ───────────────────────────────────────────────
-  (MIRAGE,     low    parametric recall     UNVERIFIED  ← hallucination signal
-  intrinsic)
-
-This is the thesis-ceiling experiment at n=1: pick a `rescued` question (dense
+crosses them.
+This is the thesis experiment at n=1: pick a `rescued` question (dense
 never retrieved the gold passage, hybrid+rerank did), give the model that
 context, and ask — did it *causally use* the retrieved passage (CTI), and is the
 content traceable to OLMo's training data (OLMoTrace)?
-
-Staged for a 16 GB GPU: the retriever is loaded and freed BEFORE the OLMo
-attributor loads, so they're never resident together. OLMoTrace is an HTTP call
-(no GPU). Prototype on the 4080 with the 7B; scale on Habrok with --model 32B.
 
 Usage
 -----
