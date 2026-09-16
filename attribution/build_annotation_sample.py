@@ -1,11 +1,11 @@
 """
 Freeze a stratified annotation sample from the RQ3 production records.
 
-The human-annotation campaign (review blocker: zero human validation) needs a
+The annotation campaign needs a
 fixed, reproducible set of claim spans to label. This builds it ONCE and embeds
 everything the annotator must see — question, answer, claim, all retrieved
 passage texts — so the annotation app (annotate_app.py) is self-contained and
-needs neither chunks.jsonl (211 MB) nor any model at runtime.
+needs neither chunks.jsonl nor any model at runtime.
 
 Design choices that matter for the calibration:
   - Unit = claim span (one row of a record's `claims`). Refusal/empty records
