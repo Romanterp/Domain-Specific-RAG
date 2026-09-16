@@ -1,5 +1,5 @@
 """
-Phase 0: Discover all UNDRR document URLs and metadata from listing pages.
+Discover all UNDRR document URLs and metadata from listing pages.
 
 Uses Playwright to handle Cloudflare JS challenges.
 Extracts rich metadata directly from listing page cards (title, date,
