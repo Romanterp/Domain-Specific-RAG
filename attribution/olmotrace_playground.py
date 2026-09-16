@@ -7,11 +7,7 @@ yet expose an OLMo-3 index — see attribution/olmotrace.py for that OLMo-2/Dolm
 path). Given a prompt + the model's response, it returns the training documents
 whose text matches spans of the response.
 
-⚠️ UNOFFICIAL / UNDOCUMENTED endpoint (no auth, but not a supported public API).
-Great for unblocking the OLMo-3 attribution analysis now; it can change or
-rate-limit without notice. For the thesis: use it, document it as the Ai2
-Playground backend, and keep the public infini-gram API (olmotrace.py) noted as
-the stable, reproducible fallback. Be courteous — don't hammer it.
+UNOFFICIAL / UNDOCUMENTED endpoint (no auth, but not a supported public API).
 
 `usage` field distinguishes the claim strength:
   - usage == "Pre-training"  → the span is in OLMo-3's ACTUAL training data
