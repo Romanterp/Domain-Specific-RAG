@@ -232,17 +232,34 @@ class MirageAttributor:
             gen = self.model.generate(ids.to(self.device), **kwargs)
         return gen[:, ids.shape[1]:].cpu()  # answer token ids only
 
-    def _answer_logprobs(self, prompt_ids, answer_ids):
+    def _answer_logprobs(self, prompt_ids, answer_ids, slice_logits: bool = False):
         """Teacher-force prompt+answer; per-answer-token logprob distribution.
-        Distribution predicting answer token j sits at position (Lp + j - 1)."""
+        Distribution predicting answer token j sits at position (Lp + j - 1).
+
+        slice_logits requests only the final A+1 logit rows — exactly positions
+        Lp-1 … Lp+A-1, which covers every position read below. Each row is an
+        independent LM-head matvec over an unchanged hidden state, so the numbers
+        are identical; it only avoids materialising the rest. That matters on a
+        16 GB card: at T≈6.3k the full [1, T, 100278] tensor is ~1.2 GiB versus
+        ~20 MiB sliced. OFF by default so the run that must reproduce recorded
+        numbers issues the same call as the run that produced them.
+        """
         import torch
         import torch.nn.functional as F
         full = torch.cat([prompt_ids, answer_ids], dim=1).to(self.device)
-        Lp = prompt_ids.shape[1]
+        Lp, A = prompt_ids.shape[1], answer_ids.shape[1]
+        base = 0  # index of the first logit row returned
         with torch.no_grad():
-            logits = self.model(full).logits[0]
-        out = [F.log_softmax(logits[Lp + j - 1].float(), dim=-1)
-               for j in range(answer_ids.shape[1])]
+            if slice_logits:
+                try:
+                    logits = self.model(full, logits_to_keep=A + 1).logits[0]
+                    base = full.shape[1] - (A + 1)
+                except TypeError:  # transformers too old for logits_to_keep
+                    logits = self.model(full).logits[0]
+            else:
+                logits = self.model(full).logits[0]
+        out = [F.log_softmax(logits[Lp + j - 1 - base].float(), dim=-1)
+               for j in range(A)]
         return torch.stack(out)  # [A, V]
 
     def answer_logprob(self, question: str, passages: list[dict], answer_text: str) -> float:
@@ -325,6 +342,133 @@ class MirageAttributor:
             drops.append(full_lp - lp_i)
         return full_lp, drops
 
+    def _sentence_token_index(self, raw: str, answer_ids) -> list[tuple[str, list]]:
+        """[(sentence_text, [token indices])] for per-claim aggregation.
+
+        Extracted so attribute() and cti_fixed_answer share ONE implementation.
+        The lead-whitespace correction, the sequential find and the half-open
+        overlap rule each shift token→sentence assignment; two copies would
+        drift silently while both still ran clean, and the drift would surface
+        only as an unexplained gap in the diagonal validation.
+        """
+        lead = len(raw) - len(raw.lstrip())
+        answer = raw.strip()
+        offs = [(a - lead, b - lead) for (a, b) in self._token_char_offsets(answer_ids)]
+        out, cur = [], 0
+        for s in split_sentences(answer):
+            i = answer.find(s, cur)
+            if i < 0:
+                i = cur
+            s_start, s_end = i, i + len(s)
+            cur = s_end
+            out.append((s, [j for j, (a, b) in enumerate(offs)
+                            if a < s_end and b > s_start]))
+        return out
+
+    def noctx_logprobs(self, question: str, answer_ids, force_plain: bool = False,
+                       slice_logits: bool = False):
+        """(lp_without [A,V], fmt) — the no-context reference for a FIXED answer.
+
+        _build_prompt_ids drops the passages outright when with_context=False, so
+        this term is a function of (question, answer) ALONE — independent of which
+        retrieval condition supplied the context. That is what makes the
+        answer-controlled 2x2 cheap: one no-context forward per (question, answer)
+        serves both context columns, i.e. 6 forwards per question rather than 8.
+        fmt is returned so a caller can refuse to reuse a reference that was built
+        in a different prompt format.
+        """
+        ids_noctx, _, fmt = self._build_prompt_ids(question, [], with_context=False,
+                                                   force_plain=force_plain)
+        return self._answer_logprobs(ids_noctx, answer_ids,
+                                     slice_logits=slice_logits), fmt
+
+    def cti_fixed_answer(self, question: str, passages: list[dict], answer_text: str,
+                         lp_without=None, lp_without_fmt: str | None = None,
+                         slice_logits: bool = False) -> dict:
+        """Score a FIXED answer under a supplied context — one cell of the 2x2.
+
+        attribute() attributes its own greedy decode, so comparing CTI across
+        retrieval conditions varies the answer text and the context together
+        (the limitation this routine exists to quantify). Here the answer is an
+        input, so a within-row contrast varies the context alone.
+
+        Two metrics, deliberately:
+          cti_mean     mean-of-sentence-means of per-token KL(with||without),
+                       aggregated exactly as reliance_experiment.py did (each
+                       claim rounded to 4dp BEFORE averaging) so the diagonal
+                       cells reproduce the recorded answer_cti_mean.
+          signed_mean  the SAME log-ratio evaluated at the realised token,
+                       log p_with(a_j) - log p_without(a_j). KL is that ratio's
+                       expectation under p_with and is therefore UNSIGNED: a
+                       context that confidently contradicts the forced text
+                       scores as high as one that supports it. On the diagonal
+                       the two nearly coincide; on a foreign answer they can
+                       diverge, and that divergence is the diagnostic. Without
+                       it, an off-diagonal "high CTI" cannot be read as reliance.
+
+        NB the answer is re-encoded from stored text (the R7 re-encoding caveat
+        that answer_logprob already carries) — the generation's own ids were
+        never persisted, which is precisely why the diagonal is the real proof.
+        """
+        import torch
+
+        ids_ctx, _, fmt = self._build_prompt_ids(question, passages, with_context=True)
+        # Both prompts must share one format, or CTI measures the template
+        # difference rather than the passages (same dance as attribute()).
+        ids_noctx, _, fmt_noctx = self._build_prompt_ids(
+            question, passages, with_context=False, force_plain=(fmt == "plain"))
+        if fmt_noctx != fmt:
+            ids_ctx, _, fmt = self._build_prompt_ids(question, passages,
+                                                     with_context=True, force_plain=True)
+            ids_noctx, _, fmt_noctx = self._build_prompt_ids(
+                question, passages, with_context=False, force_plain=True)
+
+        answer_ids = self.tok(answer_text, add_special_tokens=False,
+                              return_tensors="pt").input_ids
+        if answer_ids.shape[1] == 0:
+            return {"cti_mean": 0.0, "signed_mean": 0.0, "token_cti_mean": 0.0,
+                    "claims": [], "fmt": fmt, "n_answer_tokens": 0,
+                    "logp_with": None, "logp_without": None, "lp_without": None}
+
+        lp_with = self._answer_logprobs(ids_ctx, answer_ids, slice_logits=slice_logits)
+        if lp_without is None or (lp_without_fmt is not None and lp_without_fmt != fmt):
+            lp_without = self._answer_logprobs(ids_noctx, answer_ids,
+                                               slice_logits=slice_logits)
+        kl = (lp_with.exp() * (lp_with - lp_without)).sum(-1)          # [A]
+        tgt = answer_ids[0]
+        idx = torch.arange(tgt.shape[0])
+        signed = (lp_with[idx, tgt] - lp_without[idx, tgt])            # [A]
+
+        claims = []
+        for sent, tok_idx in self._sentence_token_index(answer_text, answer_ids):
+            if not tok_idx:
+                continue
+            kls = [float(kl[j]) for j in tok_idx]
+            sgn = [float(signed[j]) for j in tok_idx]
+            claims.append({"text": sent,
+                           "cti_mean": round(sum(kls) / len(kls), 4),
+                           "cti_max": round(max(kls), 4),
+                           "signed_mean": round(sum(sgn) / len(sgn), 4)})
+        # Mean of the ALREADY-ROUNDED claim means, then rounded — the exact
+        # chain reliance_experiment.py used; averaging full-precision means
+        # instead would miss the recorded value by ~1e-5 and muddy the gate.
+        cti_mean = round(sum(c["cti_mean"] for c in claims) / len(claims), 4) if claims else 0.0
+        signed_mean = round(sum(c["signed_mean"] for c in claims) / len(claims), 4) if claims else 0.0
+        return {
+            "cti_mean": cti_mean,
+            "signed_mean": signed_mean,
+            # Plain token-weighted means, reported as an aggregation sensitivity:
+            # claim-means weight a 4-token sentence like a 40-token one.
+            "token_cti_mean": round(float(kl.mean()), 4),
+            "token_signed_mean": round(float(signed.mean()), 4),
+            "logp_with": round(float(lp_with[idx, tgt].sum()), 4),
+            "logp_without": round(float(lp_without[idx, tgt].sum()), 4),
+            "claims": claims,
+            "fmt": fmt,
+            "n_answer_tokens": int(answer_ids.shape[1]),
+            "lp_without": lp_without,   # caller reuses across context columns
+        }
+
     def _token_char_offsets(self, answer_ids) -> list[tuple[int, int]]:
         """Char span of each answer token via cumulative decode (BPE-additive)."""
         offsets = []
@@ -403,27 +547,15 @@ class MirageAttributor:
 
         # Map tokens → sentences via char offsets. B1: _token_char_offsets builds
         # offsets from the UNSTRIPPED cumulative decode, but sentences are located
-        # in the STRIPPED answer — subtract the leading-whitespace length so both
-        # share one coordinate system, else boundary tokens get mis-assigned.
-        lead = len(raw) - len(raw.lstrip())
-        offs = [(a - lead, b - lead) for (a, b) in self._token_char_offsets(answer_ids)]
-        sentences = split_sentences(answer)
-        sent_ranges = []
-        cur = 0
-        for s in sentences:
-            i = answer.find(s, cur)
-            if i < 0:
-                i = cur
-            sent_ranges.append((i, i + len(s)))
-            cur = i + len(s)
-
+        # in the STRIPPED answer — _sentence_token_index reconciles the two
+        # coordinate systems, else boundary tokens get mis-assigned. That mapping
+        # is shared with cti_fixed_answer so the generated and teacher-forced
+        # paths aggregate identically.
         full_ctx = torch.cat([ids_ctx, answer_ids], dim=1)
         Lp = ids_ctx.shape[1]
 
         span_attrs = []
-        for (s_start, s_end), sent in zip(sent_ranges, sentences):
-            tok_idx = [j for j, (a, b) in enumerate(offs)
-                       if a < s_end and b > s_start]  # tokens overlapping this sentence
+        for sent, tok_idx in self._sentence_token_index(raw, answer_ids):
             if not tok_idx:
                 continue
             kls = [float(kl[j]) for j in tok_idx]
