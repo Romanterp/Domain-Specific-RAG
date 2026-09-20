@@ -1,4 +1,4 @@
-# Theisus — Retrieval Quality and Answer Attribution in Domain-Specific RAG
+# Retrieval Quality and Answer Attribution in Domain-Specific RAG
 
 Code, corpus and analysis for an MSc Information Science thesis (University of Groningen, 2026)
 on whether better retrieval changes what a generator actually relies on.
