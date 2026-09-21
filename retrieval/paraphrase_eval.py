@@ -2,22 +2,6 @@
 Paraphrase challenge — reword the held-out eval queries to break the
 synthetic lexical-overlap bias, then re-run the doc2query BM25 A/B on them.
 
-Motivation
-----------
-The synthetic eval queries (data/doc2query_eval_full.jsonl) are LLM-generated
-*from the gold chunk*, so they reuse the chunk's surface vocabulary. BM25
-already matches them on that overlap, which leaves doc2query almost no
-vocabulary gap to bridge — and is why the full-corpus doc2query lift nets ~0
-on this eval (EXPERIMENTS.md Round 6b / full-corpus). This script paraphrases
-each query (same meaning + same answer, different words) so the gold chunk's
-literal terms no longer leak into the query. If doc2query's recall lift
-reappears on the paraphrased set, that confirms the mechanism: doc2query helps
-exactly when the query and the document use different words.
-
-The gold labels transfer for free — paraphrasing changes only the question
-text, not which chunk answers it — so the output is a drop-in for
-eval_doc2query.py (it reads `question` + `chunk_id` per line).
-
 Output schema (JSONL, one record per query; mirrors the input plus the original)
     {question, chunk_id, slug, page, model, original_question}
 
