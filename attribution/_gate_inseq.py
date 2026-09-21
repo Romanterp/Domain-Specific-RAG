@@ -1,7 +1,7 @@
 """
-Install-gate: does the inseq Integrated-Gradients path work on our transformers
+Install-gate: does the inseq Integrated-Gradients path work on transformers
 5.x stack? Replaces the dead LXT/AttnLRP gate. captum IG is architecture-agnostic
-(embedding hooks), so a tiny model validates the API for OLMo-3 too. Throwaway.
+(embedding hooks), so a tiny model validates the API for OLMo-3 too. 
 """
 import sys
 
