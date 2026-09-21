@@ -23,7 +23,7 @@ Per claim span we cross two independent axes:
     parametric reliance     + none            → "unverified"  (not context, not traced → hallucination candidate)
     (pretraining untraced → label deferred; provenance "uncorroborated")
 
-OLMoTrace is the throttled, UNDOCUMENTED Playground endpoint, so it runs LAST and
+OLMoTrace is the throttled, undocumented Playground endpoint, so it runs LAST and
 is disk-cached (attribution/olmotrace_playground). Re-runs are free; --no-live uses
 the cache only (never hits the API). The rigorous parametric signal is
 usage=="Pre-training" (default); --include-web also counts weaker full_CC matches.
