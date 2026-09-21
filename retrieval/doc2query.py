@@ -4,23 +4,21 @@ doc2query document expansion + held-out evaluation split.
 Two modes:
 
 PROTOTYPE (default) — 1-per-doc sample, every sampled chunk is an eval gold
-chunk (1 question held out, the rest indexed). Quick, local. This is what
-produced the 300-chunk Round 6b results.
+chunk (1 question held out, the rest indexed).
 
-FULL-CORPUS (--full-corpus) — augment *every* eligible chunk (removes the
+FULL-CORPUS (--full-corpus) — augment every eligible chunk (removes the
 gold-only-augmentation bias of the prototype), sharded for a SLURM array, with
 the eval queries drawn from a separate 1-per-doc held-out sample that is never
-indexed. This is the rigorous RQ2 run.
+indexed.
 
 Circularity control (both modes): a chunk that supplies an eval query has that
-one question HELD OUT (never indexed); the chunk is still augmented with its
-other questions. So the eval query is never seen at index time.
+one question held out; the chunk is still augmented with its
+other questions.
 
 Outputs
 -------
 Prototype:    data/doc2query_expansions.json , data/doc2query_eval.jsonl
 Full-corpus:  data/doc2query_expansions_shard{i}.json , data/doc2query_eval_shard{i}.jsonl
-              (then `--merge` → doc2query_expansions_full.json / doc2query_eval_full.jsonl)
 
 Usage
 -----
@@ -28,16 +26,11 @@ Prototype (local 7B, 300 chunks):
     .venv311/Scripts/python.exe -m retrieval.doc2query --n-chunks 300 --n-questions 6
 
 Full-corpus (32B on Habrok):
-    # ONCE, before submitting the array (CPU-only, ~3 min — applies the chunk
-    # filters and persists the held-out eval chunk ids all shards will share):
     python -m retrieval.doc2query --make-holdout
 
     # then each SLURM array task runs one shard (2x A100):
     python -m retrieval.doc2query --full-corpus --shard $SLURM_ARRAY_TASK_ID \\
         --num-shards 24 --model allenai/Olmo-3.1-32B-Instruct --n-questions 6 --resume
-
-Merge shards after the array finishes:
-    python -m retrieval.doc2query --merge
 """
 
 import argparse
