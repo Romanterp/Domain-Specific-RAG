@@ -1,24 +1,22 @@
 """
-Freeze the attribution eval set — the retrieval "natural experiment".
+Freeze the attribution eval set
 
-The RQ3 finding rides on a controlled contrast: the SAME question and the SAME
-generator, but different retrieved context. We get that for free from the
-production retrieval run — comparing where each pipeline placed the gold passage
+The RQ3 finding rides on a controlled contrast: the same question and the same
+generator, but different retrieved context. So comparing where each pipeline placed the gold passage
 lets us bucket every eval question by how much the retrieval intervention
 changed the context the model would see:
 
-  rescued  — dense NEVER retrieved gold (top-100), hybrid+rerank put it in top-k.
+  rescued  — dense never retrieved gold (top-100), hybrid+rerank put it in top-k.
              The cleanest causal case: dense answers with wrong/no context,
              hybrid+rerank has the right passage. Does the answer change?
   gain     — dense had gold deep (rank k+1..100), hybrid+rerank promoted it to
              top-k. Context improved but wasn't absent.
   control  — both pipelines nailed gold at rank 1. Retrieval is identical, so
-             context-use SHOULD be identical — the baseline that isolates the
+             context-use should be identical — the baseline that isolates the
              retrieval effect from everything else.
 
 Reads the per-query rank-of-gold JSONL written by eval_synthetic.py (which
-already carries the question text + gold metadata), so this needs NO model and
-NO doc2query — it runs on the finalized Round 6 output in seconds.
+already carries the question text + gold metadata), so this needs no model.
 
 Usage
 -----
