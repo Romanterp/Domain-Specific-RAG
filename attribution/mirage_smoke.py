@@ -1,7 +1,7 @@
 """
 MIRAGE-on-OLMo feasibility smoke test.
 
-This does NOT run the MIRAGE repo (it ships LLaMA2 configs, not OLMo). It checks
+This does not run the MIRAGE repo (it ships LLaMA2 configs, not OLMo). It checks
 that OLMo exposes the two model internals MIRAGE depends on
 
 Verdict:
@@ -12,7 +12,7 @@ Usage
 -----
     .venv311/Scripts/python.exe -m attribution.mirage_smoke
     .venv311/Scripts/python.exe -m attribution.mirage_smoke --model allenai/Olmo-3-7B-Instruct
-    .venv311/Scripts/python.exe -m attribution.mirage_smoke --model allenai/OLMo-2-0425-1B-Instruct   # tiny, for a fast logic check
+    .venv311/Scripts/python.exe -m attribution.mirage_smoke --model allenai/OLMo-2-0425-1B-Instruct
 """
 
 import argparse
@@ -159,8 +159,8 @@ def main() -> int:
 
     # ---- verdict ----
     print("\n" + "=" * 60)
-    print(f"  CTI (contrastive context-sensitivity): {'PASS ✅' if cti_ok else 'FAIL ❌'}")
-    print(f"  CCI (gradient attribution to passage) : {'PASS ✅' if cci_ok else 'FAIL/VRAM ⚠'}")
+    print(f"  CTI (contrastive context-sensitivity): {'PASS' if cti_ok else 'FAIL'}")
+    print(f"  CCI (gradient attribution to passage) : {'PASS' if cci_ok else 'FAIL/VRAM'}")
     if cti_ok and cci_ok:
         print("  → OLMo exposes both internals MIRAGE needs. Threads 1+2 are feasible.")
     elif cti_ok:
