@@ -1,28 +1,18 @@
 """
 OLMoTrace-style extrinsic attribution via the public infini-gram API.
 
-infini-gram (Liu et al.) hosts a free public API over trillion-token training
-corpora — the same engine behind Allen AI's OLMoTrace. We use it to answer the
-*extrinsic* attribution question: is an answer span traceable to the model's
-training data, and in which documents?
-
-No GPU, no index download, no auth — just HTTP POST to https://api.infini-gram.io.
-
 Operations used:
 - count            → does this exact span appear in the corpus, and how often?
 - find             → locate documents containing it (ranges per shard)
 - get_doc_by_rank  → fetch a matching training document (with the span span-marked)
 
-IMPORTANT — match the index to your generator's training data
+match the index to your generator's training data
 --------------------------------------------------------------
 OLMoTrace's claim is "this is in *this model's* training data." So the index
 must be the generator's corpus, or the attribution is only approximate:
   - Generate with OLMo-2-32B-Instruct  → use `v4_olmo-2-0325-32b-instruct_llama` (exact)
   - Generate with an OLMo on the mix    → `v4_olmo-mix-1124_llama`
-  - Foundational / approximate          → `v4_dolma-v1_7_llama` (Dolma-v1.7)
-If you generate with a model whose exact corpus is NOT indexed (e.g. a newer
-OLMo), document Dolma-v1.7 / olmo-mix as an *approximation* — a stated limitation.
-(This is a good question to settle with the supervisor; see NOVELTY.md.)
+  - Foundational / approximate          → `v4_dolma-v1_7_llama`
 
 Usage
 -----
