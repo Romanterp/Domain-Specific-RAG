@@ -1,24 +1,22 @@
 """
-RQ3 core experiment — does better retrieval change what the model RELIES ON?
+RQ3 core experiment — does better retrieval change what the model relies on?
 
 The intrinsic spine (forward-only; no gradients, no inseq). For each contrast-set
-question, under BOTH retrieval conditions {dense, hybrid+rerank}:
+question, under both retrieval conditions {dense, hybrid+rerank}:
   1. retrieve that condition's passages,
   2. generate the answer (greedy, fixed),
-  3. per-claim CTI = contrastive context-sensitivity (with vs without context) —
-     "did the retrieved context drive this claim?" (mirage, cci OFF),
+  3. per-claim CTI = contrastive context-sensitivity (with vs without context)
   4. LOO = leave-one-passage-out re-scoring of the fixed answer — the causal,
-     faithful "which passage mattered" signal (replaces noisy gradient CCI).
+     faithful "which passage mattered" signa, replaces gradient CCI.
 
 The analysis (separate script) then asks the real question via the condition ×
-question-class interaction: CTI rises hybrid-vs-dense on RESCUED questions (dense
-lacked the gold passage) but not on CONTROL questions (both already had it) — the
+question-class interaction: CTI rises hybrid-vs-dense on rescued questions (dense
+lacked the gold passage) but not on control questions — the
 gap being large only where retrieval differs is the evidence that retrieval
-*quality* drives reliance, not question type. LOO confirms hybrid's reliance is
+quality drives reliance, not question type. LOO confirms hybrid's reliance is
 causally on the gold passage.
 
-Staged for a 16 GB card (retriever freed before the generator). Resumable per
-(q_idx, condition). Local 7B for a --limit smoke; 32B on Habrok for the real run.
+Staged for a 16 GB card; 32B on Habrok for the real run.
 
 Usage
 -----
