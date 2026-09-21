@@ -1,28 +1,26 @@
 """
 Doc2Query-- : relevance-filter the generated doc2query expansions.
 
-Scores each generated question against its SOURCE chunk with the same
+Scores each generated question against its source chunk with the same
 cross-encoder used for reranking (BAAI/bge-reranker-v2-m3), then drops the
 least-relevant questions before indexing. Gospodinov, MacAvaney & Macdonald
 (ECIR 2023, "Doc2Query--: When Less is More") showed that doc2query generators
 emit many off-topic / hallucinated queries, and pruning the least-relevant ones
-with a relevance model *improves* retrieval while shrinking the index.
+with a relevance model improves retrieval while shrinking the index.
 
 Two phases:
   1. SCORE (default): score every (chunk, question) pair, cache to
      data/doc2query_expansion_scores.jsonl (resumable — re-run with --resume
-     to continue after an interruption). This is the GPU-bound step.
+     to continue after an interruption).
   2. APPLY: from the cached scores, write filtered expansion JSONs at one or
      more global keep-fractions. Each output is a drop-in for
      `bm25.py --expansions`. A keep-fraction is applied as a GLOBAL score
-     percentile over all questions (Doc2Query-- style), so chunks whose
-     generated questions are all low-relevance can lose all of them — that is
-     the intended index-shrinking behaviour.
+     percentile over all questions (Doc2Query-- style)
 
 Usage
 -----
 Score, then write filtered files at several keep-fractions (keep=1.0 reproduces
-the unfiltered set as a sanity baseline):
+the unfiltered set):
     .venv311/Scripts/python.exe -m retrieval.filter_expansions \\
         --expansions data/doc2query_expansions_full.json \\
         --keep-fracs 1.0 0.75 0.5 0.25 --resume
