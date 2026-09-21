@@ -1,11 +1,11 @@
 """
-End-to-end attribution on ONE (or a few) question(s) — the RQ3 2×2 in miniature.
+End-to-end attribution on one (or a few) question(s)
 
 For each question it runs both attribution lenses on the SAME OLMo answer and
 crosses them.
 This is the thesis experiment at n=1: pick a `rescued` question (dense
 never retrieved the gold passage, hybrid+rerank did), give the model that
-context, and ask — did it *causally use* the retrieved passage (CTI), and is the
+context, and ask — did it causally use the retrieved passage (CTI), and is the
 content traceable to OLMo's training data (OLMoTrace)?
 
 Usage
