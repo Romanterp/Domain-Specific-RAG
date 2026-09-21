@@ -3,9 +3,7 @@ Doc2Query-- keep-fraction sweep on the paraphrased sparse A/B.
 
 For each relevance-filtered expansion set (keep100/75/50/25 from
 filter_expansions.py), build a BM25 index, evaluate it on the paraphrased
-held-out queries, and run paired McNemar vs the un-augmented baseline. Answers:
-does pruning low-relevance generated questions recover the Hit@1 the unfiltered
-doc2query lost (cause #2), and where is the recall/precision knee?
+held-out queries, and run paired McNemar vs the un-augmented baseline.
 
 Builds (and caches) data/bm25_doc2query_keep{75,50,25}.pkl. keep100 reuses the
 existing data/bm25_doc2query_full.pkl (all questions kept = unfiltered).
