@@ -2,10 +2,9 @@
 Build cached provenance examples for the Streamlit viewer.
 
 Runs the full pipeline over a list of questions and writes one JSON per question
-to data/attribution/. Loads models in THREE STAGES (retriever → generator →
+to data/attribution/. Loads models in three stages (retriever → generator →
 grounder), freeing the GPU between stages, so OLMo and the retrieval models are
-never resident at the same time (fits a 16 GB 4080 with the 7B; runs the 32B on
-Habrok unchanged — just pass --model and --dtype).
+never there at the same time
 
 Usage
 -----
