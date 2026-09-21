@@ -12,7 +12,7 @@ pair. Two model-internal signals, both validated in the smoke test:
        "did retrieval drive this claim?" (the intrinsic axis of the 2×2).
 
   CCI  For a context-sensitive token, input-gradient saliency of its logit w.r.t.
-       the context token embeddings, summed per passage → WHICH retrieved passage
+       the context token embeddings, summed per passage → which retrieved passage
        drove it.
 
 Methodological note: MIRAGE attributes against a plain,
@@ -446,7 +446,7 @@ class MirageAttributor:
                            "cti_mean": round(sum(kls) / len(kls), 4),
                            "cti_max": round(max(kls), 4),
                            "signed_mean": round(sum(sgn) / len(sgn), 4)})
-        # Mean of the ALREADY-ROUNDED claim means, then rounded — the exact
+        # Mean of the already-rounded claim means, then rounded — the exact
         # chain reliance_experiment.py used; averaging full-precision means
         # instead would miss the recorded value by ~1e-5 and muddy the gate.
         cti_mean = round(sum(c["cti_mean"] for c in claims) / len(claims), 4) if claims else 0.0
@@ -511,7 +511,7 @@ class MirageAttributor:
         import torch
 
         ids_ctx, spans, fmt = self._build_prompt_ids(question, passages, with_context=True)
-        # Both prompts MUST share one format: if the with-context build fell back
+        # Both prompts must share one format: if the with-context build fell back
         # to plain, a chat-templated no-context prompt would make CTI measure the
         # template difference, not the passages.
         ids_noctx, _, fmt_noctx = self._build_prompt_ids(
@@ -543,8 +543,8 @@ class MirageAttributor:
                      for j in range(answer_ids.shape[1])]
 
         # Map tokens → sentences via char offsets. B1: _token_char_offsets builds
-        # offsets from the UNSTRIPPED cumulative decode, but sentences are located
-        # in the STRIPPED answer — _sentence_token_index reconciles the two
+        # offsets from the unstripped cumulative decode, but sentences are located
+        # in the stripped answer — _sentence_token_index reconciles the two
         # coordinate systems, else boundary tokens get mis-assigned. That mapping
         # is shared with cti_fixed_answer so the generated and teacher-forced
         # paths aggregate identically.
