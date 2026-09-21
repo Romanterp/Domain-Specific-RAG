@@ -1,8 +1,7 @@
 """
-Theisus thesis workbench (Streamlit) — annotation + dual-lens provenance explorer.
+Theisus thesis workbench (Streamlit) — annotation + dual-lens explorer.
 
-Three modes in one app (same JSONL contracts everywhere, so a later
-FastAPI+React rewrite only replaces this file):
+Three modes in one app:
 
   ANNOTATE   Blind labeling of the frozen annotation sample
              (data/annotation_sample.jsonl -> data/annotation_labels.jsonl).
@@ -13,13 +12,13 @@ FastAPI+React rewrite only replaces this file):
   EXPLORE    Record-centric dual-lens view over the 32B production run
              (data/reliance_records.jsonl + data/attribution_2x2.jsonl).
              The two retrieval conditions sit side by side — a rescued
-             question SHOWS the thesis result. Visual grammar (one channel
+             question shows the thesis result. Visual grammar (one channel
              per axis, because the lenses differ in KIND):
-               fill colour   = intrinsic reliance, CAUSAL, measured on this
+               fill colour   = intrinsic reliance, causal, measured on this
                                generation (CTI: context/mixed/parametric)
                dotted under  = extrinsic verbatim overlap with training data
-                               (OLMoTrace LOOKUP — overlap, not causation)
-               dashed red    = parametric AND no trace -> "no visible source"
+                               (OLMoTrace lookup — overlap, not causation)
+               dashed red    = parametric and no trace -> "no visible source"
              The claim inspector separates the two provenance chains
              explicitly: RETRIEVED CONTEXT (causal) vs TRAINING DATA (lookup).
 
