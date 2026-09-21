@@ -8,11 +8,11 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Markdown (thesis notes, experiment logs, generated summaries) stays local
+# Markdown (thesis notes, experiment logs) stays local
 *.md
 
 # Data: ignore everything by default, whitelist small/irreplaceable artifacts.
-# Order matters — later rules override earlier ones.
+# Order matters.
 data/*
 # Per-query eval results + question sets (GPU-expensive to regenerate)
 !data/*.jsonl
@@ -30,16 +30,15 @@ data/doc2query_eval_shard*.jsonl
 data/reliance_records.shard*.jsonl
 data/reliance_smoke*.jsonl
 data/d2q_full_hyb_*.jsonl
-# 52 MB, regenerable (filter_expansions.py + pinned reranker) — archive, don't track
+# 52 MB, regenerable filter_expansions.py + pinned reranker, archive, don't track
 data/doc2query_expansion_scores.jsonl
-# OLMoTrace/infini-gram response caches: small, and the ONLY reproducibility
-# record of an unofficial endpoint — track them (review response 2026-07-12).
+# OLMoTrace/infini-gram response caches: small, and the only reproducibility
+# record of an unofficial endpoint.
 # The merged data/reliance_records.jsonl (32B production run) is tracked via
 # the !data/*.jsonl whitelist above; only shard intermediates stay ignored.
 !data/attribution/
 
-# NEVER track: browser profiles (cookies/credentials), local stores, corpora
-# (covered by data/* above; listed explicitly as a guard if data/* is edited)
+# never track: browser profiles (cookies/credentials), local stores, corpora
 data/browser_profile/
 data/edge_profile/
 data/qdrant/
@@ -51,9 +50,6 @@ data/texts/
 
 # HPC job logs
 scripts/habrok/logs/
-
-# Reference papers (re-downloadable)
-mirage.pdf
 
 # OS / editor noise
 Thumbs.db
