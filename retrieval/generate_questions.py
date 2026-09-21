@@ -31,16 +31,6 @@ Model selection
 The prototype questions are engineering validation only — they should be
 discarded and regenerated with the production model before any number
 goes into the thesis.
-
-Other notes
------------
-- Stratified sampling: max 1 chunk per document, so eval coverage is
-  spread across the corpus rather than clustered in a few large docs.
-- Stores the random-sampling seed in each record so the held-out eval
-  set can be reconstructed exactly later.
-- Difficulty scoring is intentionally NOT done here — run the questions
-  against the retrieval index post-hoc and use rank-of-gold as measured
-  difficulty.
 """
 
 import argparse
