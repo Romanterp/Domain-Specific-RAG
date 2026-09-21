@@ -1,13 +1,12 @@
 """
 Provenance pipeline: retrieve → RAG-generate → per-span grounding (+ OLMoTrace stub).
 
-Produces the cache records consumed by attribution/app.py. Designed for STAGED
-execution (see build_examples.py) so it fits a 16 GB GPU: the retriever
+Produces the cache records consumed by attribution/app.py. Designed so it fits a 16 GB GPU: the retriever
 (BGE-M3 + reranker), the generator (OLMo), and the grounder (BGE-M3) are loaded
 one stage at a time, never simultaneously.
 
 Heavy ML imports (torch / transformers / sentence-transformers / qdrant) are
-LAZY — imported inside the classes — so the Streamlit app can import the
+lazy — imported inside the classes — so the Streamlit app can import the
 constants and `derive_attribution` from this module without pulling in torch.
 """
 
