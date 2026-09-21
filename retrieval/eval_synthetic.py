@@ -9,12 +9,10 @@ retrieval metrics with KNOWN labels:
   - MRR                   (mean reciprocal rank; 1/rank, 0 if not found)
   - NDCG@10               (single-relevant-doc DCG normalized by IDCG=1)
   - Rank-of-gold buckets  (1, 2-5, 6-20, 21-100, not retrieved)
-                          → free difficulty stratification
+                          
 
 One run = one (hybrid, rerank) combination across all dense conditions. Run
-multiple times for the full ablation matrix; compare the four summary files
-side-by-side. This mirrors `retrieval/evaluate.py` so the metric tables sit
-next to each other for the thesis writeup.
+multiple times for the full ablation matrix.
 
 Usage
 -----
