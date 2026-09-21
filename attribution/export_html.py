@@ -2,8 +2,7 @@
 Export the provenance viewer to a SINGLE self-contained HTML file.
 
 Reads the cached example JSONs from data/attribution/*.json and emits one
-standalone .html with all data, CSS, and JS inlined — no Streamlit, no server,
-no internet. Drop it on Google Drive / email it; it opens in any browser.
+standalone .html with all data, CSS, and JS inlined — no Streamlit, no server
 
 The highlighted answer spans are clickable: click a claim to see its sources.
 
