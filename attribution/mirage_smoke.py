@@ -2,26 +2,11 @@
 MIRAGE-on-OLMo feasibility smoke test.
 
 This does NOT run the MIRAGE repo (it ships LLaMA2 configs, not OLMo). It checks
-that OLMo exposes the two model internals MIRAGE depends on, so you know — before
-investing in the full pipeline — whether the intrinsic-attribution thesis threads
-are runnable on your model:
-
-  CTI primitive (Contextual Token Identification)
-    Generate an answer WITH the retrieved context, then compare, per answer
-    token, the model's next-token distribution WITH vs WITHOUT the context.
-    Tokens whose distribution shifts the most are "context-sensitive" (caused by
-    retrieval, not parametric memory). Tests: contrastive logits on OLMo.
-
-  CCI primitive (Contextual Cue Imputation)
-    Take the most context-sensitive token and compute the input-gradient
-    saliency of its logit w.r.t. the context tokens, aggregated per passage —
-    i.e. WHICH document drove it. Tests: white-box gradients on OLMo.
+that OLMo exposes the two model internals MIRAGE depends on
 
 Verdict:
-  CTI PASS + CCI PASS  → MIRAGE-style attribution is feasible on OLMo; wiring the
-                         real pipeline is engineering, not research risk.
-  CCI OOM on GPU       → the primitive works but is VRAM-bound (expected for big
-                         models) — run attribution on the 7B / on Habrok, not 32B.
+  CTI PASS + CCI PASS  → MIRAGE-style attribution is feasible on OLMo.
+  CCI OOM on GPU       → the primitive works but is VRAM-bound run attribution on the 7B / on Habrok, not 32B.
 
 Usage
 -----
