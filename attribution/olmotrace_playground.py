@@ -1,13 +1,13 @@
 """
 OLMoTrace via the Ai2 Playground backend — programmatic OLMo-3 training-data tracing.
 
-This calls the SAME endpoint the Ai2 Playground UI uses for OLMoTrace, which
+This calls the same endpoint the Ai2 Playground UI uses for OLMoTrace, which
 indexes OLMo-3's actual training data (the public api.infini-gram.io does not
 yet expose an OLMo-3 index — see attribution/olmotrace.py for that OLMo-2/Dolma
 path). Given a prompt + the model's response, it returns the training documents
 whose text matches spans of the response.
 
-UNOFFICIAL / UNDOCUMENTED endpoint (no auth, but not a supported public API).
+Unofficial endpoint (no auth, but not a supported public API).
 
 `usage` field distinguishes the claim strength:
   - usage == "Pre-training"  → the span is in OLMo-3's ACTUAL training data
