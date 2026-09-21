@@ -1,26 +1,20 @@
 """
-Analyse the reliance spine output (reliance_records.jsonl) → the RQ3 result.
-
-The question: does better retrieval change what the model RELIES ON? We answer
-it as a condition × question-class interaction, not a single number:
+Analyse the reliance spine output (reliance_records.jsonl)
 
   - CTI shift = per-question (CTI under hybrid+rerank − CTI under dense).
-  - On RESCUED questions (dense lacked the gold passage, hybrid surfaced it) the
+  - On rescued questions (dense lacked the gold passage, hybrid surfaced it) the
     shift should be large — better retrieval gives the model something to rely
-    on. On CONTROL questions (both already had gold at rank 1) the shift should
-    be small. The shift being large *only where retrieval differs* is the
-    evidence that retrieval QUALITY drives reliance, not question type.
+    on. On control questions (both already had gold at rank 1) the shift should
+    be small. The shift being large only where retrieval differs is the
+    evidence that retrieval quality drives reliance, not question type.
   - LOO confirms causal use: on rescued/hybrid, removing the (now-present) gold
     passage should drop the answer's log-prob sharply.
 
-Refusals and empty generations are excluded from CTI means (a "cannot answer"
-collapses CTI for a degenerate reason, not low reliance).
+Refusals and empty generations are excluded from CTI means
 
-Post-hoc robustness (added 2026-07-12, AFTER the pre-registered result was
-computed on the production records): (a) gold-chunk cluster bootstrap of the
+Post-hoc robustness: (a) gold-chunk cluster bootstrap of the
 interaction, (b) per-protocol estimate excluding runtime pool-drift, (c)
-refusal as an outcome. Labeled post-hoc in the output; the sections above this
-one are unchanged from the pre-run commit (98e4274/4140777).
+refusal as an outcome.
 
 Usage
 -----
