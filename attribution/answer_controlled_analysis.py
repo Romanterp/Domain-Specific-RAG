@@ -1,15 +1,12 @@
 """
 Answer-controlled CTI analysis — validate, then decompose.
 
-POST-HOC SENSITIVITY, added 2026-09-19. Not pre-registered. The pre-registered
-RQ3 interaction (+0.117) stays the headline; this decomposes it and is reported
-alongside, never as a silent replacement. reliance_analysis.py and
-data/reliance_analysis.md are left untouched and byte-reproducible.
+Post-hoc sensitivity
 
 Reads the cells written by attribution.answer_controlled_cti and reports, in
 this order:
 
-  1. DIAGONAL VALIDATION GATE. The diagonal cells recompute a number that
+  1. Diagonal validation gate, the diagonal cells recompute a number that
      already exists (answer_cti_mean), so agreement validates passage
      rehydration, re-tokenisation, prompt format and aggregation in one shot.
      Nothing below is trustworthy until this passes, so it is printed first and
@@ -18,13 +15,13 @@ this order:
      predate the prompt_format field, so a record whose run silently fell back
      to a plain prompt can only be detected as a diagonal outlier.
 
-  2. IDENTICAL-ANSWER UNIT TEST. Where both conditions generated the same
+  2. Identical-answer unit test. Where both conditions generated the same
      string, the answer effect and the home-field term are zero by construction
      and Delta must equal S exactly. Delta == S == the recorded shift is the
      assertion with teeth (|A| and |I| near zero also hold under a full context
      swap, so they alone would catch nothing).
 
-  3. THE DECOMPOSITION. With X[a,c] = claim-mean CTI of answer a under context c:
+  3. Decomposition. With X[a,c] = claim-mean CTI of answer a under context c:
          S     = X[h,h] - X[d,d]                              production shift
          Delta = 0.5*((X[d,h]-X[d,d]) + (X[h,h]-X[h,d]))      context effect
          A     = 0.5*((X[h,d]-X[d,d]) + (X[h,h]-X[d,h]))      answer effect
@@ -32,19 +29,19 @@ this order:
      S = Delta + A exactly, so DiD_Delta + DiD_A = DiD_S: the published
      interaction is split into a context share and an answer-text share.
 
-  4. THE TWO ROWS SEPARATELY. Delta(a_d) — the dense answer under both contexts
-     — is the non-circular row: lexical copying alone predicts about -0.02 for
+  4. Delta(a_d) — the dense answer under both contexts is the non-circular row: 
+     lexical copying alone predicts about -0.02 for
      it. Delta(a_h) is partly self-confirming (copy-only budget +0.04..+0.11
      against a published +0.117) because the hybrid answer quotes the hybrid
      context. The headline is Delta(a_d); Delta(a_h) is reported and labelled.
 
-  5. SIGNED METRIC. CTI is an unsigned expectation KL, so a context that
-     confidently CONTRADICTS the forced text scores as high as one that
+  5. Signed metric. CTI is an unsigned expectation KL, so a context that
+     confidently contradicts the forced text scores as high as one that
      supports it. The signed companion (the same log-ratio at the realised
      token) separates them, and only it licenses the word "reliance" off the
      diagonal.
 
-  6. ROBUSTNESS. Copy-coverage adjustment, citation-swap stratification,
+  6. Robustness. Copy-coverage adjustment, citation-swap stratification,
      residual soft-refusal exclusion, token-mean aggregation, and a
      Monte-Carlo stability footnote (bootstrap endpoints here sit within ~0.005
      of zero, the same size as MC noise at B=2000, so no verdict flip that lies
