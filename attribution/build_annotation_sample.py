@@ -1,25 +1,9 @@
 """
-Freeze a stratified annotation sample from the RQ3 production records.
-
 The annotation campaign needs a
-fixed, reproducible set of claim spans to label. This builds it ONCE and embeds
+fixed, reproducible set of claim spans to label. This builds it once and embeds
 everything the annotator must see — question, answer, claim, all retrieved
 passage texts — so the annotation app (annotate_app.py) is self-contained and
 needs neither chunks.jsonl nor any model at runtime.
-
-Design choices that matter for the calibration:
-  - Unit = claim span (one row of a record's `claims`). Refusal/empty records
-    are excluded (their spans are not calibratable claims).
-  - Stratified by CTI bucket (parametric <=0.05 < mixed < 0.30 <= context, the
-    thresholds under calibration) so the decision region is covered even though
-    production CTI mass sits far above 0.30 — buckets are OVERSAMPLED relative
-    to their natural frequency, which is the point.
-  - Balanced across condition (dense / hybrid_rerank) within each bucket.
-  - File order is RANDOMIZED (seeded) — the annotator works the file top to
-    bottom and must stay blind to strata; CTI values are stored for the later
-    ROC analysis but hidden by the app in annotate mode.
-  - If the 2x2 join (attribution_2x2.jsonl) exists, pretraining_hit is attached
-    as analysis metadata (never shown while annotating).
 
 Usage
 -----
