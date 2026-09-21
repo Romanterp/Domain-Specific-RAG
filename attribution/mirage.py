@@ -1,13 +1,13 @@
 """
-MIRAGE-style intrinsic attribution on OLMo — the reusable primitive.
+MIRAGE-style intrinsic attribution on OLMo
 
 Generalises attribution/mirage_smoke.py (which used one hard-coded toy example)
 into a class the pipeline can call on a real (question, retrieved passages)
 pair. Two model-internal signals, both validated in the smoke test:
 
   CTI  Context-sensitive token identification. For each generated answer token,
-       compare the model's next-token distribution WITH the retrieved context vs
-       WITHOUT it; the KL divergence is how much that token was *caused by* the
+       compare the model's next-token distribution with the retrieved context vs
+       without it; the KL divergence is how much that token was caused by the
        context rather than parametric memory. Aggregated to sentence level →
        "did retrieval drive this claim?" (the intrinsic axis of the 2×2).
 
@@ -15,17 +15,14 @@ pair. Two model-internal signals, both validated in the smoke test:
        the context token embeddings, summed per passage → WHICH retrieved passage
        drove it.
 
-Methodological note (state in the thesis): MIRAGE attributes against a *plain,
-span-tracked* prompt (we need exact passage token spans), not the generator's
-chat-rendered prompt. So this module GENERATES the answer it attributes, with the
+Methodological note: MIRAGE attributes against a plain,
+span-tracked prompt (we need exact passage token spans), not the generator's
+chat-rendered prompt. So this module generates the answer it attributes, with the
 same instruction as `pipeline.build_rag_prompt` but without chat formatting. The
 attributed answer is therefore MIRAGE's own greedy decode, which is what the
-extrinsic (OLMoTrace) lens should also be run on, so both lenses describe the
+extrinsic (OLMoTrace) measure should also be run on, so both measures describe the
 same text.
 
-VRAM: forward+backward on the 7B fits a 16 GB 4080 (smoke test confirmed). On the
-32B, gradients are heavy → run attribution on the 7B (generate-32B / attribute-7B
-split) or on Habrok.
 """
 
 from __future__ import annotations
